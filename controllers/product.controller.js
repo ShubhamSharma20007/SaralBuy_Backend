@@ -223,8 +223,9 @@ const handleSingleProduct = async (req, res, { categoryId, subCategoryId, userId
   // Get files
   const imageFile = req.files?.image?.[0];
   const documentFile = req.files?.document?.[0];
-  const imageUrl = imageFile?.path || imageFile?.url || null;
-  const documentUrl = documentFile?.path || documentFile?.url || null;
+  // For S3, multer-s3 puts the file location in .location
+  const imageUrl = imageFile?.location || imageFile?.path || imageFile?.url || null;
+  const documentUrl = documentFile?.location || documentFile?.path || documentFile?.url || null;
 
   // Process product data
   const processedData = processProductData(
@@ -444,8 +445,9 @@ const handleMultipleProducts = async (req, res, { categoryId, subCategoryId, use
       // Get files for this product
       const imageFile = imageFiles[i] || null;
       const documentFile = documentFiles[i] || null;
-      const imageUrl = imageFile?.path || imageFile?.url || null;
-      const documentUrl = documentFile?.path || documentFile?.url || null;
+      // For S3, multer-s3 puts the file location in .location
+      const imageUrl = imageFile?.location || imageFile?.path || imageFile?.url || null;
+      const documentUrl = documentFile?.location || documentFile?.path || documentFile?.url || null;
       
       console.log(`Product ${i + 1} files - Image: ${imageUrl}, Document: ${documentUrl}`);
       

@@ -21,7 +21,8 @@ const CreateCategories = async (req, res) => {
 
     try {
         // Store only Cloudinary URL
-        const image = req.file?.path || req.files?.image?.[0]?.path || null;
+        // For S3, multer-s3 puts the file location in .location
+        const image = req.file?.location || req.file?.path || req.files?.image?.[0]?.location || req.files?.image?.[0]?.path || null;
 
         const category = new categorySchema({
             categoryName,
@@ -78,8 +79,13 @@ const UpdateCategory = async (req, res) => {
         if (Array.isArray(subCategories) && subCategories.length) category.subCategories = subCategories;
 
         // Update image if uploaded
-        if (req.file?.path) {
+        // For S3, multer-s3 puts the file location in .location
+        if (req.file?.location) {
+            category.image = req.file.location;
+        } else if (req.file?.path) {
             category.image = req.file.path;
+        } else if (req.files?.image?.[0]?.location) {
+            category.image = req.files.image[0].location;
         } else if (req.files?.image?.[0]?.path) {
             category.image = req.files.image[0].path;
         }
