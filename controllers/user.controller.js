@@ -44,7 +44,8 @@ export const sendOtp = async (req, res) => {
 
     pNo = pNo.startsWith('+') ? pNo.slice(1) : `91${pNo}`;
 
-    const apiUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/AUTOGEN/${templateName}`;
+    // const apiUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/AUTOGEN/${templateName}`;
+    const apiUrl =`https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/AUTOGEN/OTP1`
 
     const response = await fetch(apiUrl, {
       method: 'GET',
