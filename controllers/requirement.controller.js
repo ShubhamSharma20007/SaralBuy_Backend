@@ -72,6 +72,11 @@ export const getBuyerRequirements = async (req, res) => {
       return ApiResponse.errorResponse(res, 400, "Buyer not authenticated");
     }
 
+    // ✅ Pagination setup
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     // Fetch requirements with populated product + sellers
     const requirements = await Requirement.find({ buyerId })
       .populate({
@@ -83,6 +88,7 @@ export const getBuyerRequirements = async (req, res) => {
         path: "sellers.sellerId",
         select: "-password -__v", // exclude sensitive fields
       })
+      .sort({ createdAt: -1 }) // newest first
       .lean();
 
     // Helper to clean product data
@@ -102,12 +108,12 @@ export const getBuyerRequirements = async (req, res) => {
       if (!date) return null;
       const d = new Date(date);
       const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0"); // months are 0-based
+      const month = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     };
 
-    // Process requirements
+    // Process and enhance requirements
     const enhancedRequirements = await Promise.all(
       requirements.map(async (requirement) => {
         const responseObj = {
@@ -119,9 +125,9 @@ export const getBuyerRequirements = async (req, res) => {
           buyer: requirement.buyerId,
           sellers:
             requirement.sellers?.map((s) => ({
-              seller: s.sellerId, // full populated seller object
+              seller: s.sellerId,
               budgetAmount: s.budgetAmount,
-              date: formatDate(s.createdAt || requirement.createdAt), // use seller's createdAt if available
+              date: formatDate(s.createdAt || requirement.createdAt),
             })) || [],
         };
 
@@ -130,7 +136,7 @@ export const getBuyerRequirements = async (req, res) => {
           return responseObj;
         }
 
-        // Find multiProduct containing this product
+        // Fetch related multiProduct info
         const multiProduct = await multiProductSchema
           .findOne({
             $or: [
@@ -152,7 +158,6 @@ export const getBuyerRequirements = async (req, res) => {
           const mainIdStr = multiProduct.mainProductId._id.toString();
           const cleanedMainProduct = cleanProduct(multiProduct.mainProductId);
 
-          // Filter & clean subProducts (exclude main product)
           const subProductsOnly = (multiProduct.subProducts || [])
             .filter((sub) => sub._id.toString() !== mainIdStr)
             .map(cleanProduct);
@@ -162,7 +167,6 @@ export const getBuyerRequirements = async (req, res) => {
             subProducts: subProductsOnly,
           };
         } else {
-          // Single product case
           responseObj.product = {
             ...cleanProduct(responseObj.product),
             subProducts: [],
@@ -172,87 +176,32 @@ export const getBuyerRequirements = async (req, res) => {
         return responseObj;
       })
     );
-    // const ownedProducts = await productSchema
-    //   .find({ userId: buyerId })
-    //   .populate({ path: "categoryId", select: "-subCategories" })
-    //   .lean();
 
-    // const requirementProductIds = new Set(
-    //   requirements.map((req) => req.productId?._id?.toString() || (req.productId ? req.productId.toString() : ""))
-    // );
-
-    // const additionalRequirements = await Promise.all(
-    //   ownedProducts
-    //     .filter((prod) => !requirementProductIds.has(prod._id.toString()))
-    //     .map(async (prod) => {
-    //       const multiProduct = await multiProductSchema
-    //         .findOne({
-    //           $or: [
-    //             { mainProductId: prod._id },
-    //             { subProducts: prod._id },
-    //           ],
-    //         })
-    //         .populate({
-    //           path: "mainProductId",
-    //           populate: { path: "categoryId", select: "-subCategories" },
-    //         })
-    //         .populate({
-    //           path: "subProducts",
-    //           populate: { path: "categoryId", select: "-subCategories" },
-    //         })
-    //         .lean();
-
-    //       let productObj;
-    //       if (multiProduct?.mainProductId) {
-    //         const mainIdStr = multiProduct.mainProductId._id.toString();
-    //         const cleanedMainProduct = cleanProduct(multiProduct.mainProductId);
-
-    //         const subProductsOnly = (multiProduct.subProducts || [])
-    //           .filter((sub) => sub._id.toString() !== mainIdStr)
-    //           .map(cleanProduct);
-
-    //         productObj = {
-    //           ...cleanedMainProduct,
-    //           subProducts: subProductsOnly,
-    //         };
-    //       } else {
-    //         // Single product case
-    //         productObj = {
-    //           ...cleanProduct(prod),
-    //           subProducts: [],
-    //         };
-    //       }
-
-    //       return {
-    //         _id: prod._id, // Use product _id as unique id for this pseudo-requirement
-    //         status: "owned", // or any custom status to indicate it's not a real requirement
-    //         createdAt: prod.createdAt,
-    //         updatedAt: prod.updatedAt,
-    //         product: productObj,
-    //         buyer: buyerId,
-    //         sellers: [],
-    //       };
-    //     })
-    // );
-
-    // Merge and return
-    let allRequirements = [...enhancedRequirements];
-    
-    // Remove duplicate products (by product._id), keeping the first occurrence
+    // Remove duplicate product requirements
     const seenProductIds = new Set();
-    allRequirements = allRequirements.filter(req => {
+    let allRequirements = enhancedRequirements.filter((req) => {
       const prodId = req.product && req.product._id ? req.product._id.toString() : null;
-      if (!prodId) return true; // keep if no product id
+      if (!prodId) return true;
       if (seenProductIds.has(prodId)) return false;
       seenProductIds.add(prodId);
       return true;
     });
-    
+
+    // ✅ Apply pagination
+    const total = allRequirements.length;
+    const paginatedData = allRequirements.slice(skip, skip + limit);
+
     return ApiResponse.successResponse(
       res,
       200,
       "Buyer requirements fetched successfully",
-      allRequirements
+      {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: paginatedData,
+      }
     );
   } catch (err) {
     console.error(err);
@@ -285,6 +234,11 @@ export const getCompletedApprovedRequirements = async (req, res) => {
     if (!userId) {
       return ApiResponse.errorResponse(res, 400, "User not authenticated");
     }
+
+    // Pagination setup
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     // Fetch closed deals where user is either buyer OR seller
     const closedDeals = await ClosedDeal.find({
@@ -378,11 +332,21 @@ export const getCompletedApprovedRequirements = async (req, res) => {
       })
     );
 
+    // ✅ Apply pagination at the end
+    const total = enhancedDeals.length;
+    const paginatedDeals = enhancedDeals.slice(skip, skip + limit);
+
     return ApiResponse.successResponse(
       res,
       200,
       "Completed closed deals fetched successfully",
-      enhancedDeals
+      {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: paginatedDeals,
+      }
     );
   } catch (err) {
     console.error(err);
@@ -401,7 +365,12 @@ export const getApprovedPendingRequirements = async (req, res) => {
       return ApiResponse.errorResponse(res, 400, "User not authenticated");
     }
 
-    // Find approved requirements for this seller from ApprovedRequirement collection
+    // Pagination setup
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Find approved requirements for this seller
     const approvedRequirements = await ApprovedRequirement.find({ "sellerDetails.sellerId": sellerId })
       .populate({
         path: "productId",
@@ -476,7 +445,6 @@ export const getApprovedPendingRequirements = async (req, res) => {
             subProducts: subProductsOnly,
           };
         } else {
-          // Single product case
           responseObj.product = {
             ...cleanProduct(responseObj.product),
             subProducts: [],
@@ -487,11 +455,21 @@ export const getApprovedPendingRequirements = async (req, res) => {
       })
     );
 
+    // ✅ Apply pagination at the end
+    const total = enhancedRequirements.length;
+    const paginatedRequirements = enhancedRequirements.slice(skip, skip + limit);
+
     return ApiResponse.successResponse(
       res,
       200,
       "Approved requirements fetched successfully",
-      enhancedRequirements
+      {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: paginatedRequirements,
+      }
     );
   } catch (err) {
     console.error(err);
@@ -502,6 +480,7 @@ export const getApprovedPendingRequirements = async (req, res) => {
     );
   }
 };
+
   
 // Close a deal (mark as completed and store deal info)
 export const closeDeal = async (req, res) => {
