@@ -874,11 +874,19 @@ export const searchProductsController = async (req, res) => {
 
     // If category or categoryId is present, ignore title and search by categoryId only
     const catId = category || categoryId;
+    const subCatId = req.query.subCategoryId;
     if (catId) {
       if (!mongoose.Types.ObjectId.isValid(catId)) {
         return ApiResponse.errorResponse(res, 400, "Invalid categoryId");
       }
       filter.categoryId = new mongoose.Types.ObjectId(catId);
+      useTitleSearch = false;
+    }
+    if (subCatId) {
+      if (!mongoose.Types.ObjectId.isValid(subCatId)) {
+        return ApiResponse.errorResponse(res, 400, "Invalid subCategoryId");
+      }
+      filter.subCategoryId = new mongoose.Types.ObjectId(subCatId);
       useTitleSearch = false;
     }
 
