@@ -21,4 +21,5 @@ router.get(
   auth,
   requirementController.getCompletedApprovedRequirements
 );
+router.get("/get-requirement/:id", auth, requirementController.getRequirementById);
 export default router;

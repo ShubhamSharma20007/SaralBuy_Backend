@@ -574,6 +574,134 @@ export const closeDeal = async (req, res) => {
     return ApiResponse.errorResponse(res, 500, err.message || "Failed to close deal");
   }
 };
+// Get requirement by ID
+export const getRequirementById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return ApiResponse.errorResponse(res, 400, "Invalid requirement ID");
+    }
+
+    if (!userId) {
+      return ApiResponse.errorResponse(res, 400, "User not authenticated");
+    }
+
+    // Fetch the requirement with populated product + sellers
+    const requirement = await Requirement.findById(id)
+      .populate({
+        path: "productId",
+        populate: { path: "categoryId", select: "-subCategories" },
+      })
+      .populate("buyerId")
+      .populate({
+        path: "sellers.sellerId",
+        select: "-password -__v", // exclude sensitive fields
+      })
+      .lean();
+
+    if (!requirement) {
+      return ApiResponse.errorResponse(res, 404, "Requirement not found");
+    }
+
+    // Check if the user is the buyer or one of the sellers
+    const isBuyer = requirement.buyerId._id.toString() === userId;
+    const isSeller = requirement.sellers.some(s => s.sellerId._id.toString() === userId);
+
+    if (!isBuyer && !isSeller) {
+      return ApiResponse.errorResponse(res, 403, "Access denied");
+    }
+
+    // Helper to clean product data
+    const cleanProduct = (prod) => {
+      if (!prod) return prod;
+      const p = { ...prod };
+
+      if (p.userId?._id) p.userId = p.userId._id.toString();
+      if (p.subCategoryId?._id) p.subCategoryId = p.subCategoryId._id;
+
+      delete p.__v;
+      return p;
+    };
+
+    // Manual date formatter
+    const formatDate = (date) => {
+      if (!date) return null;
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0"); // months are 0-based
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    // Process the requirement similar to getBuyerRequirements
+    const responseObj = {
+      _id: requirement._id,
+      status: requirement.status,
+      createdAt: requirement.createdAt,
+      updatedAt: requirement.updatedAt,
+      product: requirement.productId,
+      buyer: requirement.buyerId,
+      sellers:
+        requirement.sellers?.map((s) => ({
+          seller: s.sellerId, // full populated seller object
+          budgetAmount: s.budgetAmount,
+          date: formatDate(s.createdAt || requirement.createdAt), // use seller's createdAt if available
+        })) || [],
+    };
+
+    if (!responseObj.product?._id) {
+      responseObj.product = null;
+      return ApiResponse.successResponse(res, 200, "Requirement fetched successfully", responseObj);
+    }
+
+    // Find multiProduct containing this product
+    const multiProduct = await multiProductSchema
+      .findOne({
+        $or: [
+          { mainProductId: responseObj.product._id },
+          { subProducts: responseObj.product._id },
+        ],
+      })
+      .populate({
+        path: "mainProductId",
+        populate: { path: "categoryId", select: "-subCategories" },
+      })
+      .populate({
+        path: "subProducts",
+        populate: { path: "categoryId", select: "-subCategories" },
+      })
+      .lean();
+
+    if (multiProduct?.mainProductId) {
+      const mainIdStr = multiProduct.mainProductId._id.toString();
+      const cleanedMainProduct = cleanProduct(multiProduct.mainProductId);
+
+      // Filter & clean subProducts (exclude main product)
+      const subProductsOnly = (multiProduct.subProducts || [])
+        .filter((sub) => sub._id.toString() !== mainIdStr)
+        .map(cleanProduct);
+
+      responseObj.product = {
+        ...cleanedMainProduct,
+        subProducts: subProductsOnly,
+      };
+    } else {
+      // Single product case
+      responseObj.product = {
+        ...cleanProduct(responseObj.product),
+        subProducts: [],
+      };
+    }
+
+    return ApiResponse.successResponse(res, 200, "Requirement fetched successfully", responseObj);
+  } catch (err) {
+    console.error(err);
+    return ApiResponse.errorResponse(res, 500, err.message || "Failed to fetch requirement");
+  }
+};
+
 // Utility to approve requirement when chat starts (for product owner/buyer)
 export const approveRequirementOnChatStart = async ({ productId, userId, sellerId }) => {
   try {
