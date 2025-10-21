@@ -1308,6 +1308,12 @@ export const getAllDraftProducts = async (req, res) => {
       return ApiResponse.errorResponse(res, 400, "User not authenticated");
     }
 
+    // Extract pagination parameters from query or use defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Fetch all draft products for the user
     const draftProducts = await productSchema.find({
       draft: true,
       userId: userId
@@ -1385,11 +1391,21 @@ export const getAllDraftProducts = async (req, res) => {
       }
     }
 
+    // Apply pagination to the final result array
+    const total = result.length;
+    const paginatedResult = result.slice(skip, skip + limit);
+
     return ApiResponse.successResponse(
       res,
       200,
       "Draft products fetched successfully",
-      result
+      {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        data: paginatedResult
+      }
     );
   } catch (error) {
     console.error(error);
