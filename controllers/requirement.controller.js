@@ -524,7 +524,7 @@ export const closeDeal = async (req, res) => {
       closedAt: new Date(),
       date: new Date(),
       categoryId: product.categoryId,
-      yourBudget: product.minimumBudget,
+      yourBudget: product.minimumBudget || 0,
       finalBudget: finalBudget
     };
 
