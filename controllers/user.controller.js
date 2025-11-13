@@ -105,7 +105,15 @@ export const sendOtp = async (req, res) => {
     const templateName = "SalarBuy"; 
 
     pNo = pNo.startsWith('+') ? pNo.slice(1) : `91${pNo}`;
-
+    console.log(pNo)
+    //  for Inactive user's
+    const findUser = await userSchema.findOne({
+        phone: new RegExp(`^\\+${pNo}$`, 'i'),
+        status: 'inactive'
+      });
+    if(findUser){
+      return ApiResponse.errorResponse(res, 400, "Your account is not active. Please contact to admin");
+    }
     // const apiUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/AUTOGEN/${templateName}`;
     const apiUrl =`https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/AUTOGEN/OTP1`
 

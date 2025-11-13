@@ -19,7 +19,18 @@ const userSchema = new mongoose.Schema({
   aadhaarImage:   { type: String }, // file path or URL
   isAadhaarVerified: { type: Boolean, default: false },
   profileImage: { type: String, default: null },
-  currentLocation:String
+  currentLocation:String,
+  role:{
+    type:String,
+    enum:['user','admin'],
+    default:'user'
+  },
+  status:{
+    type:String,
+    enum:['active','inactive'],
+    default:'active'    
+  }
 }, { timestamps: true });
 
+userSchema.index({ firstName: 1, lastName: 1, email: 1, phone: 1 });
 export default mongoose.model('User', userSchema);
