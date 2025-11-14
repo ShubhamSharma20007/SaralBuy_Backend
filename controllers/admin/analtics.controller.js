@@ -176,6 +176,7 @@ export const allProducts = async (req, res) => {
     page = parseInt(page);
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
+    text=  text.trim();
 
     const matchStage = {};
     if (text && text.trim() !== '') {

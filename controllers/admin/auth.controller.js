@@ -26,7 +26,7 @@ export const signUp = async (req, res) => {
             password:hashPassword,
             firstName:fname,
             lastName:lname,
-            phone:'000000000',
+            phone:Math.floor(Math.random() * 1000000000),
             role:'admin'
         });
            const payload = {_id:user._id,role:user.role};

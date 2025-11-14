@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
   firstName:      { type: String, },
   lastName:       { type: String, },
   email:          { type: String,unique:true,trim:true},
-  phone:          { type: String, required: true, unique: true ,trim: true},
+  phone:          { type: String, required: true },
   password:       { type: String },
   address:      { type: String, default: null },
   aadhaarNumber:  { type: String },
@@ -32,5 +32,5 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-userSchema.index({ firstName: 1, lastName: 1, email: 1, phone: 1 });
+userSchema.index({ firstName: 1, lastName: 1, email: 1 });
 export default mongoose.model('User', userSchema);
