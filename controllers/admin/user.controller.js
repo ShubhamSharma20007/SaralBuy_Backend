@@ -51,9 +51,12 @@ export const getUserById = async (req,res)=>{
 }
 
 export const updateUserById = async (req,res)=>{
+    console.log(req.body,'--------------')
     const {id}=req.params;
     try {
-        const user = await userSchema.findByIdAndUpdate(id,req.body,{new:true});
+        const user = await userSchema.findByIdAndUpdate(id,{
+            $set:req.body
+        },{new:true});
         if(!user){
             return ApiResponse.errorResponse(res,404,'User not found');
         }

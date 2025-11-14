@@ -1,9 +1,12 @@
+import mongoose from "mongoose";
 import { ApiResponse } from "../../helper/ApiReponse.js";
 import { deleteFileFromS3 } from "../../helper/deleteFileFromS3.js";
 import bannerSchema from "../../schemas/banner.schema.js";
+import categorySchema from "../../schemas/category.schema.js";
 import productSchema from "../../schemas/product.schema.js";
 import requirementSchema from "../../schemas/requirement.schema.js";
 import userSchema from "../../schemas/user.schema.js";
+import { isValidObjectId } from "../../helper/isValidId.js";
 export const dashboardAnaltics = async (req, res) => {
     try {
         const activeUsers = await userSchema.find({status:'active'}).countDocuments();
@@ -276,6 +279,60 @@ export const updateProductById = async (req,res)=>{
         ApiResponse.successResponse(res, 200, 'product updated successfully',product);
     } catch (error) {
         ApiResponse.errorResponse(res, 400, error.message);
+        
+    }
+}
+
+export const getCategoriesNames = async (req, res) => {
+    try {
+        const categories = await categorySchema.find().collation({
+            locale:'en',
+            strength:2
+        }).sort({
+            categoryName:1
+        }).select('categoryName _id');
+        ApiResponse.successResponse(res, 200, 'categories fetched successfully', categories);
+    } catch (error) {
+        ApiResponse.errorResponse(res, 400, error.message);
+    }
+}
+
+export const getSubCategoryCount = async(req,res)=>{
+    const {categoryId} = req.params;
+    if(!isValidObjectId(categoryId)){
+        ApiResponse.errorResponse(res, 400, 'Invalid category id');
+        return;
+    }
+    try {
+        const subCategories = await categorySchema.aggregate([
+            {
+                $match: {
+                    _id: new  mongoose.Types.ObjectId(categoryId)
+                }
+            },
+            {$unwind:'$subCategories'},
+             {
+                $lookup: {
+                from: "products",
+                localField: "subCategories._id",
+                foreignField: "subCategoryId",
+                as: "matchedProducts"
+                }
+            },
+            {
+                $group:{
+                    _id:'$subCategories._id',
+                    name:{$first:'$subCategories.name'},
+                    count:{$sum:{$size:'$matchedProducts'}}
+                }
+            }
+            
+        ])
+        return res.send(subCategories);
+
+    } catch (error) {
+        console.log(error)
+        res.status(400).send(error.message);
         
     }
 }

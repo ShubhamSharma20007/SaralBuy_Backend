@@ -84,7 +84,7 @@ export const logout = (req,res)=>{
 export const getProfile = async(req,res)=>{
     const user = req.user._id;
     try {
-      const findAdmin =  await userSchema.findOne({_id:user,role:'admin'}).select('-password').lean()
+      const findAdmin =  await userSchema.findOne({_id:user,role:'admin'}).lean()
       if(!findAdmin){
         ApiResponse.errorResponse(res, 400, "User not found");
         return;
