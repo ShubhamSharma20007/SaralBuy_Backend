@@ -10,6 +10,7 @@ import authRoute from "./admin/auth.route.js"
 import dashboardRoute from "./admin/dashboard.route.js"
 import adminUserRouter from "./admin/user.route.js"
 import chatRouter from "./chat.route.js";
+import bannerRouter from "./banner.route.js";
 
 //  admin routes
 const adminRoutes =[
@@ -27,6 +28,7 @@ const routes =[
     {path:'/requirement',router:requirementRouter},
     {path:'/cart',router:cartRouter},
     {path:'/chat',router:chatRouter},
+    {path:"/banner",router:bannerRouter},
     ...adminRoutes
 ]
 

@@ -109,7 +109,8 @@ export const sendOtp = async (req, res) => {
     //  for Inactive user's
     const findUser = await userSchema.findOne({
         phone: new RegExp(`^\\+${pNo}$`, 'i'),
-        status: 'inactive'
+        status: 'inactive',
+        role:'user'
       });
     if(findUser){
       return ApiResponse.errorResponse(res, 400, "Your account is not active. Please contact to admin");
