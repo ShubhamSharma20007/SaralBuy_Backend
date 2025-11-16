@@ -504,6 +504,7 @@ socket.on('send_message', async (data) => {
               userType = 'seller';
             }
             return {
+              _id: chat._id,
               roomId: chat.roomId,
               product: productMap[String(chat.productId)] || null,
               buyer: userMap[String(chat.buyerId)] || null,

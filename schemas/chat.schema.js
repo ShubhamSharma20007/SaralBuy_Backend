@@ -63,4 +63,14 @@ const chatSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Add chatrating field to the schema
+chatSchema.add({
+  chatrating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null,
+  }
+});
+
 export default mongoose.model('Chat', chatSchema);

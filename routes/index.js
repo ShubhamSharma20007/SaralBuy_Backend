@@ -9,6 +9,7 @@ import cartRouter from "./cart.route.js"
 import authRoute from "./admin/auth.route.js"
 import dashboardRoute from "./admin/dashboard.route.js"
 import adminUserRouter from "./admin/user.route.js"
+import chatRouter from "./chat.route.js";
 
 //  admin routes
 const adminRoutes =[
@@ -25,6 +26,7 @@ const routes =[
     {path:'/bid',router:bidRouter},
     {path:'/requirement',router:requirementRouter},
     {path:'/cart',router:cartRouter},
+    {path:'/chat',router:chatRouter},
     ...adminRoutes
 ]
 
