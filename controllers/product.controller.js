@@ -133,7 +133,7 @@ const processProductData = (productData, imageUrl, documentUrl, categoryId, subC
     "description", "gst_requirement", "paymentAndDelivery", "color", "selectCategory", "brand",
     "additionalDeliveryAndPackage", "fuelType", "model", "transmission", "productCategory",
     "gender", "typeOfAccessories", "toolType", "rateAService", "conditionOfProduct", "budget",
-    "bidActiveDuration"
+    "bidActiveDuration","brandName"
   ];
 
   for (const field of allowedFields) {
@@ -598,8 +598,8 @@ const handleMultipleProducts = async (req, res, { categoryId, subCategoryId, use
 export const addProduct = async (req, res) => {
   const { categoryId, subCategoryId,isMultiple } = req.params;
   const userId = req.user?.userId;
-  
-  console.log(req.body,req.params,2234234)
+  console.log(req.body,55555)
+  console.log(req.params,2234234)
   try {
     // ✅ Validate IDs
     if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {

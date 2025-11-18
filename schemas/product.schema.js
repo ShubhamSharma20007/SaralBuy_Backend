@@ -54,7 +54,8 @@ const productSchema = new mongoose.Schema({
   totalBidCount: { type: Number, default: 0 },
   budget:String, // this is not using
   bidActiveDuration: { type: String },
-  imageKey:{type:String,default:null}
+  imageKey:{type:String,default:null},
+  brandName:{type:String,default:""},
 },{
   timestamps:true
 });
