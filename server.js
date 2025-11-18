@@ -23,7 +23,7 @@ app.use(cors({
   exposedHeaders: ['Set-Cookie']
 }));
 
-app.route('/',(req,res)=>{
+app.get('/',(req,res)=>{
   res.send('Hello World')
 })
 app.use((req, res, next) => {
