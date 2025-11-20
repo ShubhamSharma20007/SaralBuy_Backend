@@ -12,9 +12,6 @@ import chatHandler from './chatHandler/index.js';
 const app = express()
 const server = http.createServer(app);
 mongoCtx()
-app.use(cookieParser());
-app.use(express.json({limit:'10mb'}))
-app.use(express.urlencoded({ extended: true }))
 app.use(cors({
   origin: ['http://localhost:5173','http://localhost:5174','https://kaleidoscopic-pika-c2b489.netlify.app','https://saralbuy.com','https://curious-khapse-f12cd1.netlify.app'],
   credentials: true,
@@ -22,6 +19,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
   exposedHeaders: ['Set-Cookie']
 }));
+app.use(cookieParser());
+app.use(express.json({limit:'10mb'}))
+app.use(express.urlencoded({ extended: true }))
+
 
 app.get('/',(req,res)=>{
   res.send('Hello World')
