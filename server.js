@@ -12,30 +12,36 @@ import chatHandler from './chatHandler/index.js';
 const app = express()
 const server = http.createServer(app);
 mongoCtx()
-const allowedOrigins = [
+
+
+// app.use(
+//     origins =[
+//   "http://localhost:5173",
+//   "http://localhost:5174",
+//   "https://kaleidoscopic-pika-c2b489.netlify.app",
+//   "https://curious-khapse-f12cd1.netlify.app",
+//   "https://saralbuy.com"
+// ],
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+//     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+//     exposedHeaders: ["Set-Cookie"]
+//   })
+// );
+
+app.use(cors({
+  origin :[
   "http://localhost:5173",
   "http://localhost:5174",
   "https://kaleidoscopic-pika-c2b489.netlify.app",
   "https://curious-khapse-f12cd1.netlify.app",
   "https://saralbuy.com"
-];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+  ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
     exposedHeaders: ["Set-Cookie"]
-  })
-);
-
+}))
 
 
 app.use(cookieParser());
