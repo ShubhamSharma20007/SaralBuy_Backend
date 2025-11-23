@@ -173,7 +173,8 @@ export const verifyOtp = async (req, res) => {
 
     const payload = { _id: user._id, phone: user.phone };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
-
+    user.lastLogin=new Date();
+    await user.save();
     res.cookie('authToken', token, {
       sameSite: "none",
       httpOnly: true,

@@ -52,7 +52,7 @@ export const signIn = async (req, res) => {
             ApiResponse.errorResponse(res, 400, "Email and password are required");
             return;
         }
-        const user = await userSchema.findOne({ email }).lean();
+        const user = await userSchema.findOne({ email,role:'admin' }).lean();
         if (!user) {
             ApiResponse.errorResponse(res, 400, "User not found");
             return;
