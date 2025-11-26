@@ -9,14 +9,17 @@ import cartRouter from "./cart.route.js"
 import authRoute from "./admin/auth.route.js"
 import dashboardRoute from "./admin/dashboard.route.js"
 import adminUserRouter from "./admin/user.route.js"
+import adminBannerRouter from "./admin/bid.route.js";
 import chatRouter from "./chat.route.js";
 import bannerRouter from "./banner.route.js";
+
 
 //  admin routes
 const adminRoutes =[
     {path:"/admin/auth",router:authRoute},
     {path:"/admin/dashboard",router:dashboardRoute},
     {path:"/admin/user",router:adminUserRouter},
+    {path:"/admin/bid",router:adminBannerRouter},
 ]
 
 // user routes
