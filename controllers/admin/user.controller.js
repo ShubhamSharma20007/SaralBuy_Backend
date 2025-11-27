@@ -4,11 +4,15 @@ import userSchema from "../../schemas/user.schema.js";
 
 export const getUser = async (req, res) => {
   try {
-    let { page = 1, limit = 10,text=null } = req.query;
+    let { page = 1, limit = 10,text=null,selectActiveOption,sort } = req.query;
     page = parseInt(page);
     limit = parseInt(limit);
     const skip = (page - 1) * limit;
-    let query = { role: 'user' };
+    let query = { role: 'user',
+        ...(selectActiveOption && {status:selectActiveOption })
+        
+    };
+    console.log(query)
     if(text && text.trim()!==''){
         query['$or'] =[
             { firstName: { $regex: text, $options: 'i' } },
@@ -19,7 +23,7 @@ export const getUser = async (req, res) => {
         ]
     }
 
-    const users = await userSchema.find(query).skip(skip).limit(limit);
+    const users = await userSchema.find(query).skip(skip).limit(limit).sort({createdAt: sort === 'asc' ? 1 : -1});
     const totalUsers = await userSchema.countDocuments(query);
     const totalPages = Math.ceil(totalUsers / limit);
     ApiResponse.successResponse(res, 200, 'users fetched', {
