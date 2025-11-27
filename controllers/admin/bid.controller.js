@@ -12,7 +12,8 @@ export const adminGetBidListing = async (req, res) => {
         const matchQuery = {};
         if (text && text.trim() !== "") {
             matchQuery['$or'] =[
-            {"productId.title":{ $regex: text, $options: "i" }},
+            {"product.title":{ $regex: text, $options: "i" }},
+            {"product.brand":{ $regex: text, $options: "i" }},
             {"buyerId.firstName" : { $regex: text, $options: "i" }},
             {"buyerId.lastName" : { $regex: text, $options: "i" }},
             {"sellerId.firstName" : { $regex: text, $options: "i" }},
