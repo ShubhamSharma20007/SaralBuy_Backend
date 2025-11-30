@@ -128,12 +128,13 @@ const processProductData = (productData, imageUrl, documentUrl, categoryId, subC
   };
 
   // Only include fields present in productData (req.body), for both draft and non-draft
+  // productCondition
   const allowedFields = [
-    "title", "quantity", "minimumBudget", "productType", "oldProductValue", "productCondition",
+    "title", "quantity", "minimumBudget", "productType", "oldProductValue",
     "description", "gst_requirement", "paymentAndDelivery", "color", "selectCategory", "brand",
     "additionalDeliveryAndPackage", "fuelType", "model", "transmission", "productCategory",
     "gender", "typeOfAccessories", "toolType", "rateAService", "conditionOfProduct", "budget",
-    "bidActiveDuration","brandName"
+    "bidActiveDuration","brandName",'typeOfVehicle','typeOfProduct'
   ];
 
   for (const field of allowedFields) {
@@ -168,9 +169,9 @@ const processProductData = (productData, imageUrl, documentUrl, categoryId, subC
         processedData.oldProductValue.max = parsedOldProductValue.max;
       }
     }
-    if (Object.prototype.hasOwnProperty.call(productData, "productCondition")) {
-      processedData.productCondition = productData.productCondition;
-    }
+    // if (Object.prototype.hasOwnProperty.call(productData, "productCondition")) {
+    //   processedData.productCondition = productData.productCondition;
+    // }
   }
 
   // Handle payment and delivery
@@ -1146,9 +1147,9 @@ export const updateProduct = async (req, res) => {
           ...(oldProductValue?.max && { max: oldProductValue.max }),
         };
       }
-      if (productCondition) {
-        updateData.productCondition = productCondition;
-      }
+      // if (productCondition) {
+      //   updateData.productCondition = productCondition;
+      // }
     }
 
     if (paymentAndDelivery || gst_requirement === "yes") {

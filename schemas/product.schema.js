@@ -41,7 +41,7 @@ const productSchema = new mongoose.Schema({
     max: Number,
   },
 
-  productCondition: String,
+  // productCondition: String,
 
   paymentAndDelivery: {
     ex_deliveryDate: Date,
@@ -55,7 +55,9 @@ const productSchema = new mongoose.Schema({
   budget:String, // this is not using
   bidActiveDuration: { type: String },
   imageKey:{type:String,default:null},
-  brandName:{type:String,default:""},
+  brandName:{type:String},
+  typeOfVehicle:{type:String},
+  typeOfProduct:{type:String}
 },{
   timestamps:true
 });
