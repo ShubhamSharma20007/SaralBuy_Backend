@@ -9,7 +9,6 @@ const productSchema = new mongoose.Schema({
     type: String
   },
   minimumBudget: { type: Number },
-  productType: { type: String,}, // ["new_product", "old_product"]
   description: { type: String },
   draft: { type: Boolean, default: false },
   categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
@@ -57,7 +56,8 @@ const productSchema = new mongoose.Schema({
   imageKey:{type:String,default:null},
   brandName:{type:String},
   typeOfVehicle:{type:String},
-  typeOfProduct:{type:String}
+  typeOfProduct:{type:String}, // user will describe
+  productType: { type: String,}, // ["new_product", "old_product"]
 },{
   timestamps:true
 });
