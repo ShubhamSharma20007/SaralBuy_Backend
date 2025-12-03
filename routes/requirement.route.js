@@ -22,4 +22,12 @@ router.get(
   requirementController.getCompletedApprovedRequirements
 );
 router.get("/get-requirement/:id", auth, requirementController.getRequirementById);
+
+// Get all notifications for buyer: products with at least one bid
+router.get(
+  "/bid-notifications",
+  auth,
+  requirementController.getBuyerBidNotifications
+);
+
 export default router;

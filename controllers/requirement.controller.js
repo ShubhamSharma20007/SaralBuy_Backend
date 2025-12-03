@@ -212,6 +212,63 @@ export const getBuyerRequirements = async (req, res) => {
     );
   }
 };
+
+// Get all notifications for buyer: products with at least one bid
+export const getBuyerBidNotifications = async (req, res) => {
+  try {
+    const buyerId = req.user?.userId;
+    if (!buyerId) {
+      return ApiResponse.errorResponse(res, 400, "Buyer not authenticated");
+    }
+
+    // Find requirements for this buyer where there is at least one seller (bid)
+    const requirementsWithBids = await Requirement.find({
+      buyerId,
+      "sellers.0": { $exists: true }
+    })
+      .populate({
+        path: "productId",
+        populate: { path: "categoryId", select: "-subCategories" }
+      })
+      .populate({
+        path: "sellers.sellerId",
+        select: "-password -__v"
+      })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    // Format notifications
+    const notifications = requirementsWithBids.map(req => ({
+      requirementId: req._id,
+      product: req.productId,
+      totalBids: req.sellers.length,
+      latestBid: req.sellers.length > 0 ? {
+        seller: req.sellers[req.sellers.length - 1].sellerId,
+        budgetAmount: req.sellers[req.sellers.length - 1].budgetAmount,
+        date: req.sellers[req.sellers.length - 1].createdAt || req.updatedAt
+      } : null,
+      allBids: req.sellers.map(s => ({
+        seller: s.sellerId,
+        budgetAmount: s.budgetAmount,
+        date: s.createdAt || req.updatedAt
+      }))
+    }));
+
+    return ApiResponse.successResponse(
+      res,
+      200,
+      "Buyer bid notifications fetched successfully",
+      notifications
+    );
+  } catch (err) {
+    console.error(err);
+    return ApiResponse.errorResponse(
+      res,
+      500,
+      err.message || "Failed to fetch buyer bid notifications"
+    );
+  }
+};
 export const getRecentRequirements = async(req,res)=>{
   try {
     const requirements = await requirementSchema.find().sort({ createdAt: -1 }).limit(3).populate([
