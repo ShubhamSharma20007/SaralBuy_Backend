@@ -11,6 +11,7 @@ import cookieParser from 'cookie-parser';
 import chatHandler from './chatHandler/index.js';
 const app = express()
 const server = http.createServer(app);
+chatHandler(server);
 mongoCtx()
 
 
@@ -43,7 +44,7 @@ app.use((req, res, next) => {
 });
 app.use('/api/v1',router)
 
-chatHandler(server);
+
 
 
 // Start the server
