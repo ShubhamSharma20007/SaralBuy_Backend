@@ -15,8 +15,8 @@ export default function chatHandler(server) {
       methods: ['GET', 'POST'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     },
-    // transports: ['websocket', 'polling'],
-    // allowEIO3: true,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 25000
   });
