@@ -11,14 +11,16 @@ export default function chatHandler(server) {
   const io = new SocketIOServer(server, {
     cors: {
       origin: ['http://localhost:5173','https://kaleidoscopic-pika-c2b489.netlify.app','https://saralbuy.com',],
-      credentials: true,
+      // credentials: true,
       methods: ['GET', 'POST'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     },
-    transports: ['websocket', 'polling'],
-    allowEIO3: true,
-    pingTimeout: 60000,
-    pingInterval: 25000
+    // transports: ['websocket', 'polling'],
+    // allowEIO3: true,
+    // pingTimeout: 60000,
+    // pingInterval: 25000
+          pingTimeout: 60000, // Set timeout for inactive sockets (60 seconds)
+      pingInterval: 25000, // Interval for ping messages (25 seconds)
   });
 
   global.io = io;
