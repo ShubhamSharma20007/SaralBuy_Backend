@@ -10,13 +10,12 @@ import { approveRequirementOnChatStart } from '../controllers/requirement.contro
 export default function chatHandler(server) {
   const io = new SocketIOServer(server, {
     cors: {
-      // origin: ['http://localhost:5173','https://kaleidoscopic-pika-c2b489.netlify.app','https://saralbuy.com','curious-khapse-f12cd1.netlify.app'],
-      origin: '*',
+      origin: ['http://localhost:5173','https://kaleidoscopic-pika-c2b489.netlify.app','https://saralbuy.com','curious-khapse-f12cd1.netlify.app'],
       // credentials: true,
       methods: ['GET', 'POST'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     },
-    // transports: ['websocket', 'polling'],
+    transports: ['websocket', 'polling'],
     // allowEIO3: true,
     // pingTimeout: 60000,
     // pingInterval: 25000
