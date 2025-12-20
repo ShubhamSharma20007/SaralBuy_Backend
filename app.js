@@ -9,8 +9,12 @@ import router from './routes/index.js';
 import mongoCtx from './db/connection.js';
 import cookieParser from 'cookie-parser';
 import chatHandler from './chatHandler/index.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 const app = express()
 const server = http.createServer(app);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 chatHandler(server);
 mongoCtx()
 
@@ -35,15 +39,21 @@ app.use(express.json({limit:'10mb'}))
 app.use(express.urlencoded({ extended: true }))
 
 
-app.get('/',(req,res)=>{
-  res.send('Hello World')
-})
+// app.get('/',(req,res)=>{
+//   res.send('Hello World')
+// })
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.originalUrl}`);
   next();
 });
 app.use('/api/v1',router)
 
+
+app.use(express.static(path.join(__dirname, 'build')));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
 
 
 
