@@ -19,4 +19,6 @@ const bidSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+bidSchema.index({ sellerId: 1, buyerId: 1, productId: 1 }, { unique: true });
+
 export default mongoose.model("Bid", bidSchema);

@@ -47,6 +47,57 @@ export const addBid = async (req, res) => {
       { $inc: { totalBidCount: 1 } },
       { new: true }
     );
+    
+    // Update/Create Requirement for buyer notifications
+    let requirement;
+    try {
+      requirement = await requirementSchema.findOne({ productId, buyerId });
+      if (requirement) {
+        const existingSeller = requirement.sellers.find(
+          (s) => String(s.sellerId) === String(sellerId)
+        );
+        if (existingSeller) {
+          existingSeller.budgetAmount = budgetQuation;
+        } else {
+          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation });
+        }
+        await requirement.save();
+      } else {
+        requirement = await requirementSchema.create({
+          productId,
+          buyerId,
+          sellers: [{ sellerId, budgetAmount: budgetQuation }]
+        });
+      }
+    } catch (reqError) {
+      console.error("Failed to update/create requirement for bid:", reqError.message);
+    }
+
+    // Notify buyer via socket
+    if (global.io && global.userSockets) {
+      const actualBuyerId = updatedProduct.userId;
+      const recipientSockets = global.userSockets.get(String(actualBuyerId));
+      if (recipientSockets) {
+        for (const sockId of recipientSockets) {
+          const recipientSocket = global.io.sockets.sockets.get(sockId);
+          if (recipientSocket) {
+            recipientSocket.emit('new_bid', {
+              message: "New bid is placed on product",
+              productId: productId,
+              productTitle: updatedProduct.title,
+              bidId: bid._id,
+              requirementId: requirement?._id,
+              sellerId: sellerId,
+              totalBids: updatedProduct.totalBidCount
+            });
+            console.log(`Socket emission: 'new_bid' sent to buyer ${actualBuyerId} with requirementId ${requirement?._id}`);
+          }
+        }
+      } else {
+        console.log(`Socket emission: No active sockets found for buyer ${actualBuyerId}`);
+      }
+    }
+
     return ApiResponse.successResponse(
       res,
       200,
