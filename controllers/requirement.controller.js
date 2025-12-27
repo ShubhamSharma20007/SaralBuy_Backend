@@ -650,6 +650,33 @@ export const closeDeal = async (req, res) => {
     return ApiResponse.errorResponse(res, 500, err.message || "Failed to close deal");
   }
 };
+// Check if a closed deal exists
+export const checkClosedDeal = async (req, res) => {
+  try {
+    const { productId, buyerId, sellerId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(productId) ||
+        !mongoose.Types.ObjectId.isValid(buyerId) ||
+        !mongoose.Types.ObjectId.isValid(sellerId)) {
+      return ApiResponse.errorResponse(res, 400, "Invalid productId, buyerId, or sellerId");
+    }
+
+    const closedDeal = await ClosedDeal.findOne({
+      productId,
+      buyerId,
+      sellerId
+    });
+
+    if (closedDeal) {
+      return ApiResponse.successResponse(res, 200, "Deal found", { exists: true, closedDeal });
+    } else {
+      return ApiResponse.successResponse(res, 200, "Deal not found", { exists: false });
+    }
+  } catch (err) {
+    console.error(err);
+    return ApiResponse.errorResponse(res, 500, err.message || "Failed to check closed deal");
+  }
+};
 // Get requirement by ID
 export const getRequirementById = async (req, res) => {
   try {
