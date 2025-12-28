@@ -151,7 +151,8 @@ try {
     lastMessage,
     messageCount: messages.length,
     buyerUnreadCount: chat?.buyerUnreadCount || 0,
-    sellerUnreadCount: chat?.sellerUnreadCount || 0
+    sellerUnreadCount: chat?.sellerUnreadCount || 0,
+    chatrating: chat?.chatrating
   });
 
   // Also update everyone in the room about the new unread counts
@@ -159,7 +160,8 @@ try {
     roomId,
     lastMessage,
     buyerUnreadCount: chat?.buyerUnreadCount || 0,
-    sellerUnreadCount: chat?.sellerUnreadCount || 0
+    sellerUnreadCount: chat?.sellerUnreadCount || 0,
+    chatrating: chat?.chatrating
   });
 } catch (err) {
   console.error('Error fetching chat history on join:', err);
@@ -211,7 +213,8 @@ try {
           lastMessage,
           messageCount: messages.length,
           buyerUnreadCount: chat?.buyerUnreadCount || 0,
-          sellerUnreadCount: chat?.sellerUnreadCount || 0
+          sellerUnreadCount: chat?.sellerUnreadCount || 0,
+          chatrating: chat?.chatrating
         });
       } catch (err) {
         console.error('Error fetching chat history:', err);
@@ -317,7 +320,8 @@ socket.on('send_message', async (data) => {
       lastMessage: chat?.lastMessage || msgObj,
       messageCount: chat?.messages?.length || 0,
       buyerUnreadCount: chat?.buyerUnreadCount || 0,
-      sellerUnreadCount: chat?.sellerUnreadCount || 0
+      sellerUnreadCount: chat?.sellerUnreadCount || 0,
+      chatrating: chat?.chatrating
     });
 
     // Emit last message update for sidebar/chat list
@@ -325,7 +329,8 @@ socket.on('send_message', async (data) => {
       roomId,
       lastMessage: chat?.lastMessage || msgObj,
       buyerUnreadCount: chat?.buyerUnreadCount || 0,
-      sellerUnreadCount: chat?.sellerUnreadCount || 0
+      sellerUnreadCount: chat?.sellerUnreadCount || 0,
+      chatrating: chat?.chatrating
     });
 
     // --- Notification logic for users not in the room ---
@@ -337,7 +342,8 @@ socket.on('send_message', async (data) => {
         sellerId,
         buyerId: finalBuyerId,
         buyerUnreadCount: chat?.buyerUnreadCount || 0,
-        sellerUnreadCount: chat?.sellerUnreadCount || 0
+        sellerUnreadCount: chat?.sellerUnreadCount || 0,
+        chatrating: chat?.chatrating
       });
     }
 
@@ -355,6 +361,7 @@ socket.on('send_message', async (data) => {
       messageCount: chat?.messages?.length || 0,
       buyerUnreadCount: chat?.buyerUnreadCount || 0,
       sellerUnreadCount: chat?.sellerUnreadCount || 0,
+      chatrating: chat?.chatrating
     };
 
     // Emit to all recipient sockets
@@ -514,6 +521,7 @@ socket.on('send_message', async (data) => {
               messageCount: chat.messages?.length || 0,
               buyerUnreadCount: chat.buyerUnreadCount || 0,
               sellerUnreadCount: chat.sellerUnreadCount || 0,
+              chatrating: chat.chatrating,
               userType
             };
           });
