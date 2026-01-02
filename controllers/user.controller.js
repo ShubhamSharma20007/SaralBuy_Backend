@@ -238,8 +238,10 @@ export const updateProfile = async (req, res) => {
     const { firstName, lastName, email, phone,aadhaarNumber ,address,currentLocation} = req.body;
     const documentFile = req.files?.document?.[0];
     const profilePic = req.files?.image?.[0];
-    const documentUrl = documentFile?.path || null;
-    const profilePicUrl = profilePic?.path || null;
+    
+    const documentUrl = documentFile?.path ||  documentFile?.location|| null;
+    
+    const profilePicUrl = profilePic?.path || profilePic?.location || null;
     // Prevent duplicate email or phone
     if (email) {
       const existingEmail = await userSchema.findOne({ email, _id: { $ne: req.user.userId } });
