@@ -678,6 +678,154 @@ export const getMultiProduct = async (req, res) => {
   }
 };
 
+// export const updateDraftStatus = async (req, res) => {
+//   const userId = req.user?.userId;
+//   let products;
+//   try {
+//     if (req.body.products) {
+//       try {
+//         products = JSON.parse(req.body.products);
+//         console.log("Parsed from req.body.products:", products);
+//       } catch (e) {
+//         console.error("Error parsing req.body.products:", e);
+//         return ApiResponse.errorResponse(res, 400, "Invalid products data format");
+//       }
+//     } else if (Array.isArray(req.body)) {
+//       products = req.body;
+//       console.log("Parsed from req.body (array root):", products);
+//     } else {
+//       console.log("req.body is neither products field nor array:", req.body);
+//     }
+//   } catch (error) {
+//     console.error('Error parsing products:', error);
+//     return ApiResponse.errorResponse(res, 400, "Invalid products data format");
+//   }
+
+//   const draft = false;
+
+//   try {
+//     console.log('Parsed products:', products); // Debug log to see parsed data
+    
+//     // Check if products array is provided
+//     if (!Array.isArray(products) || products.length === 0) {
+//       return ApiResponse.errorResponse(res, 400, "Products array is required and cannot be empty");
+//     }
+
+//     // Extract and validate all product IDs
+//     const productIds = products.map(p => p._id).filter(id => id);
+    
+//     if (productIds.length === 0) {
+//       return ApiResponse.errorResponse(res, 400, "No valid product IDs found in products array");
+//     }
+
+//     // Validate ObjectIds
+//     const invalidIds = productIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+//     if (invalidIds.length > 0) {
+//       return ApiResponse.errorResponse(res, 400, `Invalid product IDs: ${invalidIds.join(', ')}`);
+//     }
+
+//     const foundProducts = await productSchema.find({ _id: { $in: productIds } });
+
+//     if (foundProducts.length !== productIds.length) {
+//       const foundIds = foundProducts.map(p => p._id.toString());
+//       const missingIds = productIds.filter(id => !foundIds.includes(id));
+//       return ApiResponse.errorResponse(res, 404, `Products not found: ${missingIds.join(', ')}`);
+//     }
+
+//     // Verify ownership for all products
+//     const unauthorizedProducts = foundProducts.filter(fp => 
+//       fp.userId && fp.userId.toString() !== userId
+//     );
+    
+//     if (unauthorizedProducts.length > 0) {
+//       const unauthorizedIds = unauthorizedProducts.map(p => p._id.toString());
+//       return ApiResponse.errorResponse(res, 403, `Not authorized to modify products: ${unauthorizedIds.join(', ')}`);
+//     }
+
+//     // Create a map of product updates for easier access
+//     const productUpdatesMap = new Map();
+//     products.forEach(product => {
+//       if (product._id) {
+//         const { _id, ...productFields } = product;
+
+//         // Parse paymentAndDelivery if it's a string
+//         if (typeof productFields.paymentAndDelivery === "string") {
+//           try {
+//             productFields.paymentAndDelivery = JSON.parse(productFields.paymentAndDelivery);
+//           } catch (e) {
+//             // leave as string if parsing fails
+//           }
+//         }
+
+//         productUpdatesMap.set(_id, productFields);
+//       }
+//     });
+
+//     const imageFiles = req.files?.image || [];
+// const documentFiles = req.files?.document || [];
+
+//     // Perform bulk updates
+//     const updatedProducts = await Promise.all(
+//       products.map(async (product, idx) => {
+//         const productId = product._id;
+//         const specificProductFields = productUpdatesMap.get(productId) || {};
+
+//         // Handle image upload (match by index: image_0, image_1, etc.)
+//         let imageUrl = null;
+//         if (req.files && req.files[`image_${idx}`] && req.files[`image_${idx}`][0]) {
+//           imageUrl = req.files[`image_${idx}`][0].path || req.files[`image_${idx}`][0].url || null;
+//         } else if (req.files && req.files.image && Array.isArray(req.files.image) && req.files.image[idx]) {
+//           imageUrl = req.files.image[idx].path || req.files.image[idx].url || null;
+//         }
+
+//          // Handle document upload (match by index: document_0, document_1, etc.)
+//     let documentUrl = null;
+//     if (req.files && req.files[`document_${idx}`] && req.files[`document_${idx}`][0]) {
+//       documentUrl = req.files[`document_${idx}`][0].path || req.files[`document_${idx}`][0].url || null;
+//     } else if (req.files && req.files.document && Array.isArray(req.files.document) && req.files.document[idx]) {
+//       documentUrl = req.files.document[idx].path || req.files.document[idx].url || null;
+//     }
+
+//         // Combine with draft status (always false) and image if present
+//         const updatePayload = {
+//           ...specificProductFields,
+//           draft
+//         };
+//         if (imageUrl) updatePayload.image = imageUrl;
+//         if (documentUrl) updatePayload.document = documentUrl;
+
+//         console.log(`Updating product ${productId} with:`, updatePayload);
+
+//         const updateResult = await productSchema.updateOne(
+//           { _id: productId },
+//           updatePayload
+//         );
+//         console.log(`Update result for ${productId}:`, updateResult);
+
+//         // Re-fetch the updated product to ensure fresh data
+//         const updatedDoc = await productSchema.findById(productId);
+//         console.log(`Updated product ${productId}:`, updatedDoc);
+//         return updatedDoc;
+//       })
+//     );
+
+//     return ApiResponse.successResponse(
+//       res,
+//       200,
+//       `${updatedProducts.length} product(s) published successfully`,
+//       updatedProducts
+//     );
+
+//   } catch (err) {
+//     console.error(err);
+//     return ApiResponse.errorResponse(
+//       res,
+//       500,
+//       err.message || "Something went wrong while updating draft status"
+//     );
+//   }
+// };
+
 export const updateDraftStatus = async (req, res) => {
   const userId = req.user?.userId;
   let products;
@@ -704,21 +852,18 @@ export const updateDraftStatus = async (req, res) => {
   const draft = false;
 
   try {
-    console.log('Parsed products:', products); // Debug log to see parsed data
+    console.log('Parsed products:', products);
     
-    // Check if products array is provided
     if (!Array.isArray(products) || products.length === 0) {
       return ApiResponse.errorResponse(res, 400, "Products array is required and cannot be empty");
     }
 
-    // Extract and validate all product IDs
     const productIds = products.map(p => p._id).filter(id => id);
     
     if (productIds.length === 0) {
       return ApiResponse.errorResponse(res, 400, "No valid product IDs found in products array");
     }
 
-    // Validate ObjectIds
     const invalidIds = productIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
     if (invalidIds.length > 0) {
       return ApiResponse.errorResponse(res, 400, `Invalid product IDs: ${invalidIds.join(', ')}`);
@@ -732,7 +877,6 @@ export const updateDraftStatus = async (req, res) => {
       return ApiResponse.errorResponse(res, 404, `Products not found: ${missingIds.join(', ')}`);
     }
 
-    // Verify ownership for all products
     const unauthorizedProducts = foundProducts.filter(fp => 
       fp.userId && fp.userId.toString() !== userId
     );
@@ -742,13 +886,11 @@ export const updateDraftStatus = async (req, res) => {
       return ApiResponse.errorResponse(res, 403, `Not authorized to modify products: ${unauthorizedIds.join(', ')}`);
     }
 
-    // Create a map of product updates for easier access
     const productUpdatesMap = new Map();
     products.forEach(product => {
       if (product._id) {
         const { _id, ...productFields } = product;
 
-        // Parse paymentAndDelivery if it's a string
         if (typeof productFields.paymentAndDelivery === "string") {
           try {
             productFields.paymentAndDelivery = JSON.parse(productFields.paymentAndDelivery);
@@ -762,15 +904,13 @@ export const updateDraftStatus = async (req, res) => {
     });
 
     const imageFiles = req.files?.image || [];
-const documentFiles = req.files?.document || [];
+    const documentFiles = req.files?.document || [];
 
-    // Perform bulk updates
     const updatedProducts = await Promise.all(
       products.map(async (product, idx) => {
         const productId = product._id;
         const specificProductFields = productUpdatesMap.get(productId) || {};
 
-        // Handle image upload (match by index: image_0, image_1, etc.)
         let imageUrl = null;
         if (req.files && req.files[`image_${idx}`] && req.files[`image_${idx}`][0]) {
           imageUrl = req.files[`image_${idx}`][0].path || req.files[`image_${idx}`][0].url || null;
@@ -778,15 +918,13 @@ const documentFiles = req.files?.document || [];
           imageUrl = req.files.image[idx].path || req.files.image[idx].url || null;
         }
 
-         // Handle document upload (match by index: document_0, document_1, etc.)
-    let documentUrl = null;
-    if (req.files && req.files[`document_${idx}`] && req.files[`document_${idx}`][0]) {
-      documentUrl = req.files[`document_${idx}`][0].path || req.files[`document_${idx}`][0].url || null;
-    } else if (req.files && req.files.document && Array.isArray(req.files.document) && req.files.document[idx]) {
-      documentUrl = req.files.document[idx].path || req.files.document[idx].url || null;
-    }
+        let documentUrl = null;
+        if (req.files && req.files[`document_${idx}`] && req.files[`document_${idx}`][0]) {
+          documentUrl = req.files[`document_${idx}`][0].path || req.files[`document_${idx}`][0].url || null;
+        } else if (req.files && req.files.document && Array.isArray(req.files.document) && req.files.document[idx]) {
+          documentUrl = req.files.document[idx].path || req.files.document[idx].url || null;
+        }
 
-        // Combine with draft status (always false) and image if present
         const updatePayload = {
           ...specificProductFields,
           draft
@@ -802,12 +940,87 @@ const documentFiles = req.files?.document || [];
         );
         console.log(`Update result for ${productId}:`, updateResult);
 
-        // Re-fetch the updated product to ensure fresh data
         const updatedDoc = await productSchema.findById(productId);
         console.log(`Updated product ${productId}:`, updatedDoc);
         return updatedDoc;
       })
     );
+
+
+    try {
+      const requirementDocs = updatedProducts.map(product => ({
+        productId: product._id,
+        buyerId: userId,
+        sellers: []
+      }));
+      
+      await requirementSchema.insertMany(requirementDocs);
+      console.log("[Requirement] Created requirements for", updatedProducts.length, "products");
+    } catch (err) {
+      console.error("[Requirement] Error creating requirements:", err);
+    }
+
+
+    try {
+      const creator = await userSchema.findById(userId, 'currentLocation');
+      const creatorLocation = creator?.currentLocation;
+      console.log("[Notification] Creator location:", creatorLocation);
+
+      if (creatorLocation) {
+        const usersToNotify = await userSchema.find(
+          { currentLocation: creatorLocation, _id: { $ne: userId } },
+          '_id'
+        );
+        console.log("[Notification] Users to notify (excluding creator):", usersToNotify.map(u => u._id.toString()));
+
+        const notifications = [];
+        for (const user of usersToNotify) {
+          for (const product of updatedProducts) {
+            notifications.push({
+              userId: user._id,
+              productId: product._id,
+              title: product.title,
+              description: product.description,
+            });
+          }
+        }
+        
+        if (notifications.length > 0) {
+          const result = await productNotificationSchema.insertMany(notifications);
+          console.log("[Notification] Notifications inserted into DB:", result.map(n => n._id.toString()));
+
+          // Real-time product notification via socket
+          if (global.io && global.userSockets && typeof global.userSockets.get === 'function') {
+            for (const user of usersToNotify) {
+              const userIdStr = String(user._id);
+              const recipientSockets = global.userSockets.get(userIdStr);
+              if (recipientSockets) {
+                for (const sockId of recipientSockets) {
+                  const recipientSocket = global.io.sockets.sockets.get(sockId);
+                  if (recipientSocket) {
+                    for (const product of updatedProducts) {
+                      recipientSocket.emit('product_notification', {
+                        productId: product._id,
+                        title: product.title,
+                        description: product.description
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            console.warn("[Notification] Skipping socket notification: global.io or global.userSockets not available or not a Map.");
+          }
+        } else {
+          console.log("[Notification] No notifications to insert (no users matched location).");
+        }
+      } else {
+        console.log("[Notification] Creator has no location, skipping notification.");
+      }
+    } catch (err) {
+      console.error("[Notification] Error in notification logic:", err);
+    }
 
     return ApiResponse.successResponse(
       res,
@@ -825,7 +1038,6 @@ const documentFiles = req.files?.document || [];
     );
   }
 };
-
 
 export const getProducts = async (req, res) => {
     try {
@@ -1217,7 +1429,7 @@ export const getProductByName = async (req, res) => {
     }).populate({
       path:'categoryId',
       select:'categoryName'
-    }).lean();
+    }).limit(5).lean()
     return ApiResponse.successResponse(res, 200,'products found',products);
   } catch (error) {
     console.error(error);

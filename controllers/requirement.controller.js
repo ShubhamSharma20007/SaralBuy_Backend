@@ -78,7 +78,7 @@ export const getBuyerRequirements = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Fetch requirements with populated product + sellers
-    const requirements = await Requirement.find({ buyerId })
+    const requirements = await Requirement.find({ buyerId ,isDelete:false})
       .populate({
         path: "productId",
         populate: { path: "categoryId", select: "-subCategories" },

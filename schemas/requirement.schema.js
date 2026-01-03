@@ -7,7 +7,8 @@ const requirementSchema = new mongoose.Schema(
     sellers: [
       {
         sellerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-        budgetAmount: { type: Number, required: true }
+        budgetAmount: { type: Number, required: true },
+        bidId: { type: mongoose.Schema.Types.ObjectId, ref: "Bid" },
       }
     ],
   isDelete: { type: Boolean, default: false }

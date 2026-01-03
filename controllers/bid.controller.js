@@ -58,15 +58,16 @@ export const addBid = async (req, res) => {
         );
         if (existingSeller) {
           existingSeller.budgetAmount = budgetQuation;
+          existingSeller.bidId = bid._id;
         } else {
-          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation });
+          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation,bidId:bid._id });
         }
         await requirement.save();
       } else {
         requirement = await requirementSchema.create({
           productId,
           buyerId,
-          sellers: [{ sellerId, budgetAmount: budgetQuation }]
+          sellers: [{ sellerId, budgetAmount: budgetQuation,bidId:bid._id }]
         });
       }
     } catch (reqError) {
