@@ -1,5 +1,5 @@
 import express from 'express';
-import { addProduct, getProducts, updateProduct, deleteProduct, searchProductsController, getProductByName, getProductById, getDraftProducts, getMultiProduct, updateDraftStatus, getAllDraftProducts,getDraftProductById, getUnseenProductNotifications, markProductNotificationSeen,getHomeProducts } from '../controllers/product.controller.js';
+import { addProduct, getProducts, updateProduct, deleteProduct, searchProductsController, getProductByName, getProductById, getDraftProducts, getMultiProduct, updateDraftStatus, getAllDraftProducts,getDraftProductById, getUnseenProductNotifications, markProductNotificationSeen,getHomeProducts,saveAsDraft } from '../controllers/product.controller.js';
 import uploadSingleImage from '../middleware/uploadMiddleware.js';
 import { uploadProductFiles } from '../middleware/productUploadMiddleware.js';
 import auth from '../middleware/auth.js';
@@ -21,5 +21,5 @@ router.get('/get-home-products',getHomeProducts);
 
 router.get('/notifications/unseen', auth, getUnseenProductNotifications);
 router.post('/notifications/mark-seen', auth, markProductNotificationSeen);
-
+router.put('/save_as_draft/:isMultiple',auth, uploadProductFiles, saveAsDraft);
 export default router;
