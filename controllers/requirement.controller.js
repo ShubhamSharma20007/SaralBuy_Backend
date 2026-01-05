@@ -644,6 +644,42 @@ export const closeDeal = async (req, res) => {
 
     // await requirement.save();
 
+    // Emit real-time socket event to notify both buyer and seller about the closed deal
+    if (global.io && global.userSockets) {
+      const dealClosedPayload = {
+        closedDeal,
+        productId,
+        buyerId,
+        sellerId,
+        finalBudget,
+        closedAt: closedDeal.closedAt
+      };
+
+      // Notify buyer
+      const buyerSockets = global.userSockets.get(String(buyerId));
+      if (buyerSockets) {
+        for (const sockId of buyerSockets) {
+          const buyerSocket = global.io.sockets.sockets.get(sockId);
+          if (buyerSocket) {
+            buyerSocket.emit('deal_closed', dealClosedPayload);
+          }
+        }
+      }
+
+      // Notify seller
+      const sellerSockets = global.userSockets.get(String(sellerId));
+      if (sellerSockets) {
+        for (const sockId of sellerSockets) {
+          const sellerSocket = global.io.sockets.sockets.get(sockId);
+          if (sellerSocket) {
+            sellerSocket.emit('deal_closed', dealClosedPayload);
+          }
+        }
+      }
+
+      console.log(`Deal closed event emitted to buyer ${buyerId} and seller ${sellerId}`);
+    }
+
     return ApiResponse.successResponse(res, 200, "Deal closed successfully", closedDeal);
   } catch (err) {
     console.error(err);
