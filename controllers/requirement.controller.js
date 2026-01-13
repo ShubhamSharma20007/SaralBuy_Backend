@@ -242,6 +242,7 @@ export const getBuyerBidNotifications = async (req, res) => {
       requirementId: req._id,
       product: req.productId,
       totalBids: req.sellers.length,
+      bidDate: req.sellers[req.sellers.length - 1].createdAt || req.updatedAt,
       latestBid: req.sellers.length > 0 ? {
         seller: req.sellers[req.sellers.length - 1].sellerId,
         budgetAmount: req.sellers[req.sellers.length - 1].budgetAmount,

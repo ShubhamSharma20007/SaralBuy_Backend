@@ -103,7 +103,7 @@ export const getUserCart = async (req, res) => {
     };
 
     // For each cartItem, build product info (single or multi)
-    const enhancedCartItems = await Promise.all(
+    const enhancedCartItems = (await Promise.all(
       cart.cartItems.map(async (item) => {
         // If only one productId, check if it's part of a multiProduct
         if (item.productIds.length === 1) {
@@ -210,7 +210,7 @@ export const getUserCart = async (req, res) => {
           }
         }
       })
-    );
+    )).sort((a,b)=>new Date(b.addedAt) - new Date(a.addedAt));
       const cartResponse = {
       _id: cart._id,
       userId: cart.userId,
