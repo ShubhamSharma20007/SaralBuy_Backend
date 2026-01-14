@@ -6,6 +6,17 @@ import mongoose from 'mongoose';
 import Product from '../schemas/product.schema.js';
 import User from '../schemas/user.schema.js';
 import { approveRequirementOnChatStart } from '../controllers/requirement.controller.js';
+import AWS from 'aws-sdk';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// Configure AWS S3
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.Region,
+});
 
 export default function chatHandler(server) {
   const io = new SocketIOServer(server, {
@@ -222,15 +233,97 @@ try {
       }
     });
 
-    // Handle sending messages
+    // Handle chat attachment upload
+    socket.on('upload_chat_attachment', async (data) => {
+      const { fileBuffer, fileName, mimeType, fileSize } = data;
+
+      // Validate required fields
+      if (!fileBuffer || !fileName || !mimeType) {
+        socket.emit('upload_error', { message: 'Missing required fields: fileBuffer, fileName, or mimeType' });
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (fileSize > maxSize) {
+        socket.emit('upload_error', { message: 'File size exceeds 10MB limit' });
+        return;
+      }
+
+      // Validate MIME type
+      const allowedMimeTypes = [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/tiff', 'image/bmp', 'image/avif',
+        'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain', 'text/csv', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      ];
+
+      if (!allowedMimeTypes.includes(mimeType)) {
+        socket.emit('upload_error', { message: 'Invalid file type. Only images and documents are allowed.' });
+        return;
+      }
+
+      // Determine attachment type (image or document)
+      const attachmentType = mimeType.startsWith('image/') ? 'image' : 'document';
+
+      try {
+        // Convert base64 string to buffer if needed
+        let buffer;
+        if (typeof fileBuffer === 'string') {
+          // Remove data URL prefix if present
+          const base64Data = fileBuffer.replace(/^data:[^;]+;base64,/, '');
+          buffer = Buffer.from(base64Data, 'base64');
+        } else {
+          buffer = Buffer.from(fileBuffer);
+        }
+
+        // Generate unique filename
+        const ext = fileName.split('.').pop();
+        const timestamp = Date.now();
+        const s3Key = `saralbuy/chat-attachments/${timestamp}-${fileName}`;
+
+        // Upload to S3
+        const uploadParams = {
+          Bucket: process.env.Bucket,
+          Key: s3Key,
+          Body: buffer,
+          ContentType: mimeType,
+        };
+
+        const s3Response = await s3.upload(uploadParams).promise();
+
+        // Send success response with file URL and metadata
+        socket.emit('upload_success', {
+          url: s3Response.Location,
+          type: attachmentType,
+          mimeType,
+          fileName,
+          fileSize: buffer.length,
+        });
+
+        console.log(`File uploaded successfully: ${s3Response.Location}`);
+      } catch (err) {
+        console.error('Error uploading file to S3:', err);
+        socket.emit('upload_error', { message: 'Failed to upload file', error: err.message });
+      }
+    });
+
     // Handle sending messages
 socket.on('send_message', async (data) => {
-  const { productId, sellerId, message, senderId, senderType, buyerId } = data;
+  const { productId, sellerId, message, senderId, senderType, buyerId, attachment } = data;
 
   // Validate required fields
   if (!productId || !sellerId || !message || !senderId || !senderType) {
     socket.emit('error', { message: 'Missing required fields for sending message' });
     return;
+  }
+
+  // Validate attachment if provided
+  if (attachment) {
+    if (!attachment.url || !attachment.type || !attachment.mimeType || !attachment.fileName) {
+      socket.emit('error', { message: 'Invalid attachment data. Required: url, type, mimeType, fileName' });
+      return;
+    }
   }
 
   // Determine final buyerId
@@ -275,6 +368,17 @@ socket.on('send_message', async (data) => {
       timestamp: new Date()
     };
 
+    // Add attachment if provided
+    if (attachment) {
+      msgObj.attachment = {
+        url: attachment.url,
+        type: attachment.type,
+        mimeType: attachment.mimeType,
+        fileName: attachment.fileName,
+        fileSize: attachment.fileSize || null,
+      };
+    }
+
     // Only increment unread count if recipient is NOT in the room
     // Determine which unread count to increment
     let unreadField;
@@ -316,6 +420,7 @@ socket.on('send_message', async (data) => {
       senderId,
       senderType,
       timestamp: msgObj.timestamp,
+      attachment: msgObj.attachment || null,
       roomId,
       lastMessage: chat?.lastMessage || msgObj,
       messageCount: chat?.messages?.length || 0,
