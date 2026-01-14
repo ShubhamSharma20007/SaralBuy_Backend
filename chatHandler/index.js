@@ -456,12 +456,20 @@ socket.on('send_message', async (data) => {
     console.log(`Unread counts - Buyer: ${chat?.buyerUnreadCount || 0}, Seller: ${chat?.sellerUnreadCount || 0}`);
   // --- Emit recent_chat_update to all sockets of recipient and sender ---
   try {
+    // Fetch buyer and seller user details to include names
+    const [buyerUser, sellerUser] = await Promise.all([
+      User.findById(finalBuyerId).select('firstName lastName').lean(),
+      User.findById(sellerId).select('firstName lastName').lean()
+    ]);
+
     // Prepare recent chat summary
     const recentChatSummary = {
       roomId,
       productId,
       buyerId: finalBuyerId,
       sellerId,
+      buyerName: buyerUser ? `${buyerUser.firstName || ''} ${buyerUser.lastName || ''}`.trim() : '',
+      sellerName: sellerUser ? `${sellerUser.firstName || ''} ${sellerUser.lastName || ''}`.trim() : '',
       lastMessage: chat?.lastMessage || msgObj,
       messageCount: chat?.messages?.length || 0,
       buyerUnreadCount: chat?.buyerUnreadCount || 0,
