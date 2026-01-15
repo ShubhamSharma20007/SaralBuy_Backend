@@ -70,14 +70,75 @@ const sendNotificationToOfflineUser = (notifyUserId, roomId, payload) => {
     console.log(`Socket connected: ${socket.id}`);
 
     // Listen for user identification
-    socket.on('identify', ({ userId }) => {
+    socket.on('identify', async ({ userId }) => {
       if (!userId) return;
+      
+      const wasOffline = !userSockets.has(userId) || userSockets.get(userId).size === 0;
+      
       if (!userSockets.has(userId)) {
         userSockets.set(userId, new Set());
       }
       userSockets.get(userId).add(socket.id);
       socket.userId = userId;
       console.log(`User identified: ${userId} with socket ${socket.id}`);
+
+      // If user just came online, notify all users who have chats with them
+      if (wasOffline) {
+        try {
+          // Find all chats where this user is a participant
+          const chats = await Chat.find({
+            $or: [
+              { buyerId: new mongoose.Types.ObjectId(userId) },
+              { sellerId: new mongoose.Types.ObjectId(userId) }
+            ]
+          }).select('buyerId sellerId').lean();
+
+          // Collect all unique user IDs who have chats with this user
+          const notifyUserIds = new Set();
+          chats.forEach(chat => {
+            const buyerIdStr = String(chat.buyerId);
+            const sellerIdStr = String(chat.sellerId);
+            if (buyerIdStr === userId) {
+              notifyUserIds.add(sellerIdStr);
+            } else {
+              notifyUserIds.add(buyerIdStr);
+            }
+          });
+
+          // Emit user_online event to all relevant users (notify them that this user came online)
+          const onlinePayload = {
+            userId,
+            timestamp: new Date()
+          };
+
+          for (const notifyUserId of notifyUserIds) {
+            const recipientSockets = userSockets.get(notifyUserId);
+            if (recipientSockets) {
+              for (const sockId of recipientSockets) {
+                const recipientSocket = io.sockets.sockets.get(sockId);
+                if (recipientSocket) {
+                  recipientSocket.emit('user_online', onlinePayload);
+                }
+              }
+            }
+          }
+
+          // Also notify the newly connected user about which of their chat participants are already online
+          for (const chatParticipantId of notifyUserIds) {
+            const isParticipantOnline = userSockets.has(chatParticipantId) && userSockets.get(chatParticipantId).size > 0;
+            if (isParticipantOnline) {
+              socket.emit('user_online', {
+                userId: chatParticipantId,
+                timestamp: new Date()
+              });
+            }
+          }
+
+          console.log(`User ${userId} is now online. Notified ${notifyUserIds.size} users and received status of ${Array.from(notifyUserIds).filter(id => userSockets.has(id) && userSockets.get(id).size > 0).length} online users.`);
+        } catch (err) {
+          console.error('Error notifying users of online status:', err);
+        }
+      }
     });
 
     // Handle joining a chat room
@@ -462,6 +523,10 @@ socket.on('send_message', async (data) => {
       User.findById(sellerId).select('firstName lastName').lean()
     ]);
 
+    // Check online status
+    const buyerOnline = userSockets.has(String(finalBuyerId)) && userSockets.get(String(finalBuyerId)).size > 0;
+    const sellerOnline = userSockets.has(String(sellerId)) && userSockets.get(String(sellerId)).size > 0;
+
     // Prepare recent chat summary
     const recentChatSummary = {
       roomId,
@@ -470,6 +535,8 @@ socket.on('send_message', async (data) => {
       sellerId,
       buyerName: buyerUser ? `${buyerUser.firstName || ''} ${buyerUser.lastName || ''}`.trim() : '',
       sellerName: sellerUser ? `${sellerUser.firstName || ''} ${sellerUser.lastName || ''}`.trim() : '',
+      buyerOnline,
+      sellerOnline,
       lastMessage: chat?.lastMessage || msgObj,
       messageCount: chat?.messages?.length || 0,
       buyerUnreadCount: chat?.buyerUnreadCount || 0,
@@ -623,12 +690,19 @@ socket.on('send_message', async (data) => {
             } else if (String(chat.sellerId) === String(userId)) {
               userType = 'seller';
             }
+            
+            // Check online status
+            const buyerOnline = userSockets.has(String(chat.buyerId)) && userSockets.get(String(chat.buyerId)).size > 0;
+            const sellerOnline = userSockets.has(String(chat.sellerId)) && userSockets.get(String(chat.sellerId)).size > 0;
+            
             return {
               _id: chat._id,
               roomId: chat.roomId,
               product: productMap[String(chat.productId)] || null,
               buyer: userMap[String(chat.buyerId)] || null,
               seller: userMap[String(chat.sellerId)] || null,
+              buyerOnline,
+              sellerOnline,
               messages: chat.messages || [],
               lastMessage: chat.lastMessage || (chat.messages?.length > 0 ? chat.messages[chat.messages.length - 1] : null),
               messageCount: chat.messages?.length || 0,
@@ -644,6 +718,22 @@ socket.on('send_message', async (data) => {
         console.error('Error fetching recent chats:', err);
         socket.emit('error', { message: 'Failed to fetch recent chats', error: err.message });
       }
+    });
+
+    // Check if a specific user is online
+    socket.on('check_user_status', (data) => {
+      const { userId } = data;
+      if (!userId) {
+        socket.emit('error', { message: 'Missing userId for checking status' });
+        return;
+      }
+
+      const isOnline = userSockets.has(String(userId)) && userSockets.get(String(userId)).size > 0;
+      
+      socket.emit('user_status_response', {
+        userId,
+        isOnline
+      });
     });
 
     // Handle clearing/leaving active room
@@ -683,14 +773,62 @@ socket.on('send_message', async (data) => {
     });
 
     // Handle user disconnects
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', async (reason) => {
       console.log(`Socket disconnected: ${socket.id} (${reason})`);
+
+      const disconnectedUserId = socket.userId;
 
       // Clean up user socket mapping
       if (socket.userId && userSockets.has(socket.userId)) {
         userSockets.get(socket.userId).delete(socket.id);
+        
+        // If user has no more active sockets, they are offline
         if (userSockets.get(socket.userId).size === 0) {
           userSockets.delete(socket.userId);
+          
+          // Notify all users who have chats with this user that they went offline
+          try {
+            const chats = await Chat.find({
+              $or: [
+                { buyerId: new mongoose.Types.ObjectId(disconnectedUserId) },
+                { sellerId: new mongoose.Types.ObjectId(disconnectedUserId) }
+              ]
+            }).select('buyerId sellerId').lean();
+
+            // Collect all unique user IDs who have chats with this user
+            const notifyUserIds = new Set();
+            chats.forEach(chat => {
+              const buyerIdStr = String(chat.buyerId);
+              const sellerIdStr = String(chat.sellerId);
+              if (buyerIdStr === disconnectedUserId) {
+                notifyUserIds.add(sellerIdStr);
+              } else {
+                notifyUserIds.add(buyerIdStr);
+              }
+            });
+
+            // Emit user_offline event to all relevant users
+            const offlinePayload = {
+              userId: disconnectedUserId,
+              timestamp: new Date()
+            };
+
+            for (const notifyUserId of notifyUserIds) {
+              const recipientSockets = userSockets.get(notifyUserId);
+              if (recipientSockets) {
+                for (const sockId of recipientSockets) {
+                  const recipientSocket = io.sockets.sockets.get(sockId);
+                  if (recipientSocket) {
+                    recipientSocket.emit('user_offline', offlinePayload);
+                  }
+                }
+              }
+            }
+
+            console.log(`User ${disconnectedUserId} is now offline. Notified ${notifyUserIds.size} users.`);
+          } catch (err) {
+            console.error('Error notifying users of offline status:', err);
+          }
         }
       }
 
