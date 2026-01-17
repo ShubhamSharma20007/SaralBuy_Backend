@@ -12,6 +12,7 @@ export const createRequirement = async (req, res) => {
   try {
     const { productId, sellerId, buyerId, budgetAmount } = req.body;
 
+
     if (!mongoose.Types.ObjectId.isValid(productId) || !mongoose.Types.ObjectId.isValid(sellerId)) {
       return ApiResponse.errorResponse(res, 400, "Invalid productId or sellerId");
     }
@@ -909,3 +910,13 @@ export const approveRequirementOnChatStart = async ({ productId, userId, sellerI
     return { updated: false, reason: err.message || "Error updating requirement" };
   }
 };
+
+export const deleteRequirement = async()=>{
+  try {
+    const {productId}= req.params;
+    
+    
+  } catch (error) {
+    
+  }
+}

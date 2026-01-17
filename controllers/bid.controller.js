@@ -9,10 +9,15 @@ import userSchema from "../schemas/user.schema.js";
 // Create a new bid
 export const addBid = async (req, res) => {
   try {
-    const { budgetQuation, status, availableBrand, earliestDeliveryDate, businessType } = req.body;
+    const { budgetQuation, status, availableBrand, earliestDeliveryDate, businessType, sellerType,
+      priceBasis,
+      taxes,
+      freightTerms,
+      paymentTerms,
+      location,
+      buyerNote, } = req.body;
     const { buyerId, productId } = req.params;
     const sellerId = req.user.userId;
-    console.log(req.body,2123 )
     if (!isValidObjectId(buyerId) || !isValidObjectId(productId)) {
       return ApiResponse.errorResponse(res, 400, "Invalid sellerId or productId");
     }
@@ -23,7 +28,7 @@ export const addBid = async (req, res) => {
         "budgetQuation is required"
       );
     }
-      const existingBid = await Bid.findOne({ sellerId, buyerId, productId });
+    const existingBid = await Bid.findOne({ sellerId, buyerId, productId });
     if (existingBid) {
       return ApiResponse.errorResponse(res, 400, "You have already placed a bid for this product");
     }
@@ -33,12 +38,22 @@ export const addBid = async (req, res) => {
       sellerId,
       buyerId,
       productId,
+
       budgetQuation,
       status: status || "active",
       availableBrand,
       earliestDeliveryDate,
+      sellerType,
+      priceBasis,
+      taxes,
+      freightTerms,
+      paymentTerms,
+      location,
+      buyerNote,
       businessType,
-      ...(businessType === "business" && {businessDets:req.body.businessDets})
+      ...(businessType === "business" && {
+        businessDets: req.body.businessDets,
+      }),
     });
 
     // Increment totalBidCount for the product
@@ -47,7 +62,7 @@ export const addBid = async (req, res) => {
       { $inc: { totalBidCount: 1 } },
       { new: true }
     );
-    
+
     // Update/Create Requirement for buyer notifications
     let requirement;
     try {
@@ -60,14 +75,14 @@ export const addBid = async (req, res) => {
           existingSeller.budgetAmount = budgetQuation;
           existingSeller.bidId = bid._id;
         } else {
-          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation,bidId:bid._id });
+          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation, bidId: bid._id });
         }
         await requirement.save();
       } else {
         requirement = await requirementSchema.create({
           productId,
           buyerId,
-          sellers: [{ sellerId, budgetAmount: budgetQuation,bidId:bid._id }]
+          sellers: [{ sellerId, budgetAmount: budgetQuation, bidId: bid._id }]
         });
       }
     } catch (reqError) {
@@ -121,7 +136,7 @@ export const getAllBids = async (req, res) => {
     const { search = "", limit = 10, page = 1, sortBy = "desc" } = req.query;
     const parsedLimit = Math.max(1, parseInt(limit, 10) || 10);
     const parsedPage = Math.max(1, parseInt(page, 10) || 1);
-    
+
     // Determine sort order for createdAt
     const sortOrder = sortBy === "asc" ? 1 : -1;
     // Build aggregation pipeline
@@ -169,33 +184,33 @@ export const getAllBids = async (req, res) => {
         }
       },
       { $unwind: "$buyer" },
-      {
-        $project: {
-          _id: 1,
-          budgetQuation: 1,
-          status: 1,
-          availableBrand: 1,
-          earliestDeliveryDate: 1,
-          businessType: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          product: 1,
-          seller: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            phone: 1
-          },
-          buyer: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            phone: 1
-          }
-        }
-      }
+      // {
+      //   $project: {
+      //     _id: 1,
+      //     budgetQuation: 1,
+      //     status: 1,
+      //     availableBrand: 1,
+      //     earliestDeliveryDate: 1,
+      //     businessType: 1,
+      //     createdAt: 1,
+      //     updatedAt: 1,
+      //     product: 1,
+      //     seller: {
+      //       _id: 1,
+      //       firstName: 1,
+      //       lastName: 1,
+      //       email: 1,
+      //       phone: 1
+      //     },
+      //     buyer: {
+      //       _id: 1,
+      //       firstName: 1,
+      //       lastName: 1,
+      //       email: 1,
+      //       phone: 1
+      //     }
+      //   }
+      // }
     );
 
     // For total count (before pagination)
@@ -288,7 +303,7 @@ export const deleteBid = async (req, res) => {
       res,
       200,
       "Bid deleted successfully",
-      
+
     );
   } catch (err) {
     return ApiResponse.errorResponse(
@@ -429,16 +444,16 @@ export const updateBidUserDetails = async (req, res) => {
   }
 }
 
-export const getLatestThreeBidAndDraft = async(req,res)=>{
+export const getLatestThreeBidAndDraft = async (req, res) => {
   try {
-    const user =req.user._id
-    if(!user){
+    const user = req.user._id
+    if (!user) {
       return ApiResponse.errorResponse(res, 404, "User not found");
     }
-    const bids = await bidSchema.find({sellerId:user}).sort({ createdAt: -1 }).limit(3).populate({
-      path:'productId',
-      populate:{
-        path:'categoryId'
+    const bids = await bidSchema.find({ sellerId: user }).sort({ createdAt: -1 }).limit(3).populate({
+      path: 'productId',
+      populate: {
+        path: 'categoryId'
       }
     }).lean()
     if (!bids) {
@@ -446,16 +461,16 @@ export const getLatestThreeBidAndDraft = async(req,res)=>{
     }
 
     //  for draft
-    const drafts = await productSchema.find({userId:user,draft:true}).sort({ createdAt: -1 }).limit(3).populate('categoryId').lean()
+    const drafts = await productSchema.find({ userId: user, draft: true }).sort({ createdAt: -1 }).limit(3).populate('categoryId').lean()
     if (!drafts) {
       return ApiResponse.errorResponse(res, 404, "Draft not found");
     }
 
-    return ApiResponse.successResponse(res, 200, "Bid fetched successfully", {bids,drafts});
+    return ApiResponse.successResponse(res, 200, "Bid fetched successfully", { bids, drafts });
   } catch (error) {
     console.log(error)
     return ApiResponse.errorResponse(res, 400, "Something went wrong while getting bid overview");
-    
+
   }
 
 }
@@ -608,7 +623,7 @@ export const getbidDeatilsBYid = async (req, res) => {
             lastName: buyer.lastName,
             email: buyer.email,
             phone: buyer.phone,
-            currentLocation:buyer.currentLocation || buyer.address ,
+            currentLocation: buyer.currentLocation || buyer.address,
             // Add more fields as needed
           };
         }
@@ -665,23 +680,24 @@ export const getbidDeatilsBYid = async (req, res) => {
   }
 };
 
-export const getBidByProductId =async(req,res)=>{
-const {productId} = req.params;
-try {
-  const getBidDoc = await bidSchema.exists({
-productId});
-if (!getBidDoc) {
-  return ApiResponse.errorResponse(
-    res,
-    404,
-    "Bid not found"
-  );
-}
-return ApiResponse.successResponse(res, 200, "Bid fetched successfully", getBidDoc);
-} catch (error) {
-  return ApiResponse.errorResponse(res, 400, error.message);
-  
-}
+export const getBidByProductId = async (req, res) => {
+  const { productId } = req.params;
+  try {
+    const getBidDoc = await bidSchema.exists({
+      productId
+    });
+    if (!getBidDoc) {
+      return ApiResponse.errorResponse(
+        res,
+        404,
+        "Bid not found"
+      );
+    }
+    return ApiResponse.successResponse(res, 200, "Bid fetched successfully", getBidDoc);
+  } catch (error) {
+    return ApiResponse.errorResponse(res, 400, error.message);
+
+  }
 }
 
 

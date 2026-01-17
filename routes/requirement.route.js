@@ -31,4 +31,6 @@ router.get(
   requirementController.getBuyerBidNotifications
 );
 
+router.delete('/delete-requirement/:productId',auth,requirementController.deleteRequirement)
+
 export default router;
