@@ -736,6 +736,98 @@ socket.on('send_message', async (data) => {
       });
     });
 
+    // Handle rating a chat
+    socket.on('rate_chat', async (data) => {
+      const { chatId, rating, ratedBy } = data;
+
+      // Validate required fields
+      if (!chatId || typeof rating !== 'number') {
+        socket.emit('error', { message: 'chatId and rating are required' });
+        return;
+      }
+      if (rating < 1 || rating > 5) {
+        socket.emit('error', { message: 'Rating must be between 1 and 5' });
+        return;
+      }
+      if (!ratedBy) {
+        socket.emit('error', { message: 'ratedBy (userId) is required' });
+        return;
+      }
+
+      try {
+        // Update the chat rating
+        const chat = await Chat.findByIdAndUpdate(
+          chatId,
+          { chatrating: rating },
+          { new: true }
+        ).lean();
+
+        if (!chat) {
+          socket.emit('error', { message: 'Chat not found' });
+          return;
+        }
+
+        // Get the user who rated
+        const rater = await User.findById(ratedBy).select('firstName lastName').lean();
+        const raterName = rater ? `${rater.firstName || ''} ${rater.lastName || ''}`.trim() : 'Someone';
+
+        const notificationPayload = {
+          chatId: chat._id,
+          roomId: chat.roomId,
+          rating,
+          ratedBy,
+          raterName,
+          timestamp: new Date(),
+          message: `${raterName} rated this chat ${rating} stars`,
+          chatrating: rating
+        };
+
+        // Emit to the room (all users currently in the chat)
+        io.to(chat.roomId).emit('chat_rated', notificationPayload);
+
+        // Also emit to all sockets of buyer and seller (even if not in room)
+        const buyerIdStr = String(chat.buyerId);
+        const sellerIdStr = String(chat.sellerId);
+
+        // Notify buyer
+        const buyerSockets = userSockets.get(buyerIdStr);
+        if (buyerSockets) {
+          for (const sockId of buyerSockets) {
+            const buyerSocket = io.sockets.sockets.get(sockId);
+            if (buyerSocket) {
+              buyerSocket.emit('chat_rating_notification', notificationPayload);
+            }
+          }
+        }
+
+        // Notify seller
+        const sellerSockets = userSockets.get(sellerIdStr);
+        if (sellerSockets) {
+          for (const sockId of sellerSockets) {
+            const sellerSocket = io.sockets.sockets.get(sockId);
+            if (sellerSocket) {
+              sellerSocket.emit('chat_rating_notification', notificationPayload);
+            }
+          }
+        }
+
+        // Confirm to the rater
+        socket.emit('rating_success', {
+          message: 'Chat rated successfully',
+          chat: {
+            _id: chat._id,
+            chatrating: rating
+          }
+        });
+
+        console.log(`Chat ${chatId} rated ${rating} stars by user ${ratedBy}. Notifications sent to buyer ${buyerIdStr} and seller ${sellerIdStr}`);
+      } catch (err) {
+        console.error('Error rating chat:', err);
+        socket.emit('error', { message: 'Failed to rate chat', error: err.message });
+      }
+    });
+
+
     // Handle clearing/leaving active room
     socket.on('leave_room', (data) => {
       const { roomId } = data;

@@ -619,53 +619,40 @@ export const closeDeal = async (req, res) => {
       buyerId,
       sellerId,
       budgetAmount: product.budget,
-      closedAt: new Date(),
-      date: new Date(),
+      // closedAt: new Date(),  // Not closed yet
+      // date: new Date(),
       categoryId: product.categoryId,
       yourBudget: product.minimumBudget || 0,
-      finalBudget: finalBudget
+      finalBudget: finalBudget,
+      initiator: 'buyer',
+      closedDealStatus: 'waiting_seller_approval',
+      dealStatus: 'pending'
     };
 
-    const closedDeal = new ClosedDeal(closedDealData);
-    await closedDeal.save();
-
-    // Delete the ApprovedRequirement document for this deal
-    const deletedApprovedReq = await ApprovedRequirement.findOneAndDelete({
-      productId: new mongoose.Types.ObjectId(productId),
-      buyerId: new mongoose.Types.ObjectId(buyerId),
-      "sellerDetails.sellerId": new mongoose.Types.ObjectId(sellerId)
-    });
-    
-    // Log deletion result for debugging
-    if (deletedApprovedReq) {
-      console.log("Approved requirement deleted successfully:", deletedApprovedReq._id);
-    } else {
-      console.log("No approved requirement found to delete for this combination");
+    // Check if a deal already exists (pending or whatever)
+    let closedDeal = await ClosedDeal.findOne({ productId, buyerId, sellerId });
+    if (closedDeal) {
+      // If it exists, update it? Or return error?
+      // For now, let's update it to restart the process if it was rejected?
+      // Or just return existing deal
+      return ApiResponse.errorResponse(res, 400, "Deal closure already initiated or exists");
     }
 
-    // await requirement.save();
+    closedDeal = new ClosedDeal(closedDealData);
+    await closedDeal.save();
 
-    // Emit real-time socket event to notify both buyer and seller about the closed deal
+    // Do NOT delete ApprovedRequirement yet. Wait for seller approval.
+
+    // Emit real-time socket event to notify both buyer and seller about the deal request
     if (global.io && global.userSockets) {
-      const dealClosedPayload = {
-        closedDeal,
+      const dealRequestPayload = {
+        deal: closedDeal,
         productId,
         buyerId,
         sellerId,
         finalBudget,
-        closedAt: closedDeal.closedAt
+        message: "Buyer initiated close deal request"
       };
-
-      // Notify buyer
-      const buyerSockets = global.userSockets.get(String(buyerId));
-      if (buyerSockets) {
-        for (const sockId of buyerSockets) {
-          const buyerSocket = global.io.sockets.sockets.get(sockId);
-          if (buyerSocket) {
-            buyerSocket.emit('deal_closed', dealClosedPayload);
-          }
-        }
-      }
 
       // Notify seller
       const sellerSockets = global.userSockets.get(String(sellerId));
@@ -673,24 +660,97 @@ export const closeDeal = async (req, res) => {
         for (const sockId of sellerSockets) {
           const sellerSocket = global.io.sockets.sockets.get(sockId);
           if (sellerSocket) {
-            sellerSocket.emit('deal_closed', dealClosedPayload);
+            sellerSocket.emit('close_deal_request', dealRequestPayload);
           }
         }
       }
-
-      console.log(`Deal closed event emitted to buyer ${buyerId} and seller ${sellerId}`);
+      
+      console.log(`Close deal request emitted to seller ${sellerId}`);
     }
 
-    return ApiResponse.successResponse(res, 200, "Deal closed successfully", closedDeal);
+    return ApiResponse.successResponse(res, 200, "Close deal initiated successfully", closedDeal);
   } catch (err) {
     console.error(err);
-    return ApiResponse.errorResponse(res, 500, err.message || "Failed to close deal");
+    return ApiResponse.errorResponse(res, 500, err.message || "Failed to initiate close deal");
+  }
+};
+
+// Respond to Close Deal Request (Seller)
+export const respondToCloseDeal = async (req, res) => {
+  try {
+    const { dealId, action } = req.body; // action: 'accept' or 'reject'
+    const sellerId = req.user?.userId;
+
+    if (!dealId || !action) {
+      return ApiResponse.errorResponse(res, 400, "Missing dealId or action");
+    }
+    
+    if (!sellerId) {
+        return ApiResponse.errorResponse(res, 401, "Unauthorized");
+    }
+
+    const deal = await ClosedDeal.findById(dealId);
+    if (!deal) {
+      return ApiResponse.errorResponse(res, 404, "Deal not found");
+    }
+    
+    // meaningful check: ensure the user responding IS the seller
+    if (deal.sellerId.toString() !== sellerId) {
+        return ApiResponse.errorResponse(res, 403, "Not authorized to respond to this deal");
+    }
+
+    if (action === 'accept') {
+      deal.closedDealStatus = 'completed';
+      deal.dealStatus = 'accepted';
+      deal.closedAt = new Date();
+      deal.date = new Date();
+      
+      // Now we can delete the ApprovedRequirement
+      await ApprovedRequirement.findOneAndDelete({
+          productId: deal.productId,
+          buyerId: deal.buyerId,
+          "sellerDetails.sellerId": deal.sellerId
+      });
+      
+    } else if (action === 'reject') {
+      deal.closedDealStatus = 'rejected';
+      deal.dealStatus = 'rejected';
+    } else {
+      return ApiResponse.errorResponse(res, 400, "Invalid action");
+    }
+
+    await deal.save();
+
+    // Socket notifications
+    if (global.io && global.userSockets) {
+        const payload = {
+            deal,
+            action,
+            message: `Seller ${action}ed the deal`
+        };
+        
+        // Notify Buyer
+        const buyerSockets = global.userSockets.get(String(deal.buyerId));
+        if (buyerSockets) {
+            for(const sockId of buyerSockets) {
+                const bSocket = global.io.sockets.sockets.get(sockId);
+                if(bSocket) bSocket.emit('close_deal_resolution', payload);
+            }
+        }
+    }
+
+    return ApiResponse.successResponse(res, 200, `Deal ${action}ed successfully`, deal);
+
+  } catch (error) {
+    console.error(error);
+    return ApiResponse.errorResponse(res, 500, error.message || "Failed to respond to deal");
   }
 };
 // Check if a closed deal exists
 export const checkClosedDeal = async (req, res) => {
   try {
     const { productId, buyerId, sellerId } = req.body;
+    const userId = req.user?.userId;
 
     if (!mongoose.Types.ObjectId.isValid(productId) ||
         !mongoose.Types.ObjectId.isValid(buyerId) ||
@@ -704,10 +764,49 @@ export const checkClosedDeal = async (req, res) => {
       sellerId
     });
 
+    // Fetch product to identifying creator
+    const product = await productSchema.findById(productId).select('userId').lean();
+    const productCreatorId = product?.userId?.toString();
+
+    const isBuyer = userId === buyerId;
+    const isSeller = userId === sellerId;
+    const isCreator = userId === productCreatorId;
+    
+    let role = 'viewer';
+    if (isBuyer) role = 'buyer';
+    else if (isSeller) role = 'seller';
+    else if (isCreator) role = 'creator';
+
+    // Check for ApprovedRequirement
+    const approvedRequirement = await ApprovedRequirement.findOne({
+      productId,
+      buyerId,
+      "sellerDetails.sellerId": sellerId
+    }).lean();
+
     if (closedDeal) {
-      return ApiResponse.successResponse(res, 200, "Deal found", { exists: true, closedDeal });
+      return ApiResponse.successResponse(res, 200, "Deal found", { 
+          exists: true, 
+          closedDeal,
+          approvedRequirement, // Return approval details if any
+          status: closedDeal.closedDealStatus || 'pending',
+          userRole: {
+              isBuyer,
+              isSeller,
+              isCreator,
+              role
+          }
+      });
     } else {
-      return ApiResponse.successResponse(res, 200, "Deal not found", { exists: false });
+      return ApiResponse.successResponse(res, 200, "Deal not found", { 
+          exists: false,
+          userRole: {
+              isBuyer,
+              isSeller,
+              isCreator,
+              role
+          }
+      });
     }
   } catch (err) {
     console.error(err);

@@ -10,6 +10,17 @@ const closedDealSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now }, // Date of deal closure
     finalBudget: { type: Number },
     closedAt: { type: Date, default: Date.now },
+    initiator: { type: String, default: "buyer" },
+    closedDealStatus: {
+      type: String,
+      enum: ["pending", "waiting_seller_approval", "completed", "rejected"],
+      default: "pending",
+    },
+    dealStatus: {
+      type: String,
+      enum: ["pending", "accepted", "rejected"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );

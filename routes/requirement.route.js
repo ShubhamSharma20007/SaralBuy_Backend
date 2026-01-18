@@ -16,6 +16,7 @@ router.get(
   requirementController.getApprovedPendingRequirements
 );
 router.post("/close-deal", auth, requirementController.closeDeal);
+router.post("/respond-close-deal", auth, requirementController.respondToCloseDeal);
 router.post("/closed-deal-check", auth, requirementController.checkClosedDeal);
 router.get(
   "/completed-approved",
