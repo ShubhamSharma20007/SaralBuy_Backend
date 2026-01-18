@@ -9,10 +9,16 @@ import userSchema from "../schemas/user.schema.js";
 // Create a new bid
 export const addBid = async (req, res) => {
   try {
-    const { budgetQuation, status, availableBrand, earliestDeliveryDate, businessType } = req.body;
+    const { budgetQuation, status, availableBrand, earliestDeliveryDate, businessType, sellerType,
+      priceBasis,
+      taxes,
+      freightTerms,
+      paymentTerms,
+      location,
+      buyerNote, } = req.body;
+
     const { buyerId, productId } = req.params;
     const sellerId = req.user.userId;
-    console.log(req.body,2123 )
     if (!isValidObjectId(buyerId) || !isValidObjectId(productId)) {
       return ApiResponse.errorResponse(res, 400, "Invalid sellerId or productId");
     }
@@ -23,7 +29,7 @@ export const addBid = async (req, res) => {
         "budgetQuation is required"
       );
     }
-      const existingBid = await Bid.findOne({ sellerId, buyerId, productId });
+    const existingBid = await Bid.findOne({ sellerId, buyerId, productId });
     if (existingBid) {
       return ApiResponse.errorResponse(res, 400, "You have already placed a bid for this product");
     }
@@ -33,12 +39,22 @@ export const addBid = async (req, res) => {
       sellerId,
       buyerId,
       productId,
+
       budgetQuation,
       status: status || "active",
       availableBrand,
       earliestDeliveryDate,
+      sellerType,
+      priceBasis,
+      taxes,
+      freightTerms,
+      paymentTerms,
+      location,
+      buyerNote,
       businessType,
-      ...(businessType === "business" && {businessDets:req.body.businessDets})
+      ...(businessType === "business" && {
+        businessDets: req.body.businessDets,
+      }),
     });
 
     // Increment totalBidCount for the product
@@ -47,7 +63,7 @@ export const addBid = async (req, res) => {
       { $inc: { totalBidCount: 1 } },
       { new: true }
     );
-    
+
     // Update/Create Requirement for buyer notifications
     let requirement;
     try {
@@ -60,14 +76,14 @@ export const addBid = async (req, res) => {
           existingSeller.budgetAmount = budgetQuation;
           existingSeller.bidId = bid._id;
         } else {
-          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation,bidId:bid._id });
+          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation, bidId: bid._id });
         }
         await requirement.save();
       } else {
         requirement = await requirementSchema.create({
           productId,
           buyerId,
-          sellers: [{ sellerId, budgetAmount: budgetQuation,bidId:bid._id }]
+          sellers: [{ sellerId, budgetAmount: budgetQuation, bidId: bid._id }]
         });
       }
     } catch (reqError) {
@@ -169,33 +185,33 @@ export const getAllBids = async (req, res) => {
         }
       },
       { $unwind: "$buyer" },
-      {
-        $project: {
-          _id: 1,
-          budgetQuation: 1,
-          status: 1,
-          availableBrand: 1,
-          earliestDeliveryDate: 1,
-          businessType: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          product: 1,
-          seller: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            phone: 1
-          },
-          buyer: {
-            _id: 1,
-            firstName: 1,
-            lastName: 1,
-            email: 1,
-            phone: 1
-          }
-        }
-      }
+      // {
+      //   $project: {
+      //     _id: 1,
+      //     budgetQuation: 1,
+      //     status: 1,
+      //     availableBrand: 1,
+      //     earliestDeliveryDate: 1,
+      //     businessType: 1,
+      //     createdAt: 1,
+      //     updatedAt: 1,
+      //     product: 1,
+      //     seller: {
+      //       _id: 1,
+      //       firstName: 1,
+      //       lastName: 1,
+      //       email: 1,
+      //       phone: 1
+      //     },
+      //     buyer: {
+      //       _id: 1,
+      //       firstName: 1,
+      //       lastName: 1,
+      //       email: 1,
+      //       phone: 1
+      //     }
+      //   }
+      // }
     );
 
     // For total count (before pagination)
@@ -512,6 +528,7 @@ export const getbidDeatilsBYid = async (req, res) => {
 
     // Prepare sellers array: { seller: <sellerObj>, budgetQuation, ... }
     const sellersAll = allBids.map(b => ({
+      ...b,
       seller: b.sellerId,
       budgetQuation: b.budgetQuation,
       availableBrand: b.availableBrand,
