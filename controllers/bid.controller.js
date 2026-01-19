@@ -6,6 +6,7 @@ import bidSchema from "../schemas/bid.schema.js";
 import productSchema from "../schemas/product.schema.js";
 import requirementSchema from "../schemas/requirement.schema.js";
 import userSchema from "../schemas/user.schema.js";
+import productNotificationSchema from "../schemas/productNotification.schema.js";
 // Create a new bid
 export const addBid = async (req, res) => {
   try {
@@ -113,6 +114,26 @@ export const addBid = async (req, res) => {
       } else {
         console.log(`Socket emission: No active sockets found for buyer ${actualBuyerId}`);
       }
+    }
+
+    // Create notification in productNotificationSchema
+    try {
+      const seller = await userSchema.findById(sellerId).select("firstName lastName").lean();
+      const sellerName = seller?.firstName 
+        ? `${seller.firstName} ${seller.lastName || ''}`.trim()
+        : "A seller";
+      
+      const notification = await productNotificationSchema.create({
+        userId: updatedProduct.userId, // The buyer (product owner)
+        productId: productId,
+        title: `New bid on ${updatedProduct.title}`,
+        description: `${sellerName} placed a bid of ₹${budgetQuation}. Total bids: ${updatedProduct.totalBidCount}`,
+        seen: false
+      });
+      
+      console.log(`Notification created for buyer ${updatedProduct.userId}:`, notification._id);
+    } catch (notifError) {
+      console.error("Failed to create notification:", notifError.message);
     }
 
     return ApiResponse.successResponse(

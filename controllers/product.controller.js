@@ -1823,24 +1823,75 @@ export const getUnseenProductNotifications = async (req, res) => {
 export const markProductNotificationSeen = async (req, res) => {
   try {
     const userId = req.user?._id || req.user?.userId;
-    const { notificationId } = req.body;
+    const { notificationId, notificationIds } = req.body;
+    
+    if (!userId) {
+      return ApiResponse.errorResponse(res, 401, "User not authenticated");
+    }
+    
+    // Handle multiple notifications
+    if (notificationIds && Array.isArray(notificationIds)) {
+      if (notificationIds.length === 0) {
+        return ApiResponse.errorResponse(res, 400, "Notification IDs array cannot be empty");
+      }
+      
+      const result = await productNotificationSchema.updateMany(
+        { _id: { $in: notificationIds }, userId },
+        { $set: { seen: true } }
+      );
+      
+      if (result.matchedCount === 0) {
+        return ApiResponse.errorResponse(res, 404, "No notifications found");
+      }
+      
+      return ApiResponse.successResponse(
+        res, 
+        200, 
+        `${result.modifiedCount} notification(s) marked as seen`,
+        { modifiedCount: result.modifiedCount, matchedCount: result.matchedCount }
+      );
+    }
+    
+    // Handle single notification
+    if (!notificationId) {
+      return ApiResponse.errorResponse(res, 400, "Notification ID or IDs array is required");
+    }
+    
+    const notification = await productNotificationSchema.findOneAndUpdate(
+      { _id: notificationId, userId },
+      { $set: { seen: true } },
+      { new: true }
+    );
+    
+    if (!notification) {
+      return ApiResponse.errorResponse(res, 404, "Notification not found");
+    }
+    
+    return ApiResponse.successResponse(res, 200, "Notification marked as seen", notification);
+  } catch (error) {
+    return ApiResponse.errorResponse(res, 500, error.message || "Failed to mark notification as seen");
+  }
+};
+
+export const deleteProductNotification = async (req, res) => {
+  try {
+    const userId = req.user?._id || req.user?.userId;
+    const { notificationId } = req.params;
     if (!userId) {
       return ApiResponse.errorResponse(res, 401, "User not authenticated");
     }
     if (!notificationId) {
       return ApiResponse.errorResponse(res, 400, "Notification ID is required");
     }
-    const notification = await productNotificationSchema.findOneAndUpdate(
-      { _id: notificationId, userId },
-      { $set: { seen: true } },
-      { new: true }
+    const notification = await productNotificationSchema.findOneAndDelete(
+      { _id: notificationId, userId }
     );
     if (!notification) {
       return ApiResponse.errorResponse(res, 404, "Notification not found");
     }
-    return ApiResponse.successResponse(res, 200, "Notification marked as seen", notification);
+    return ApiResponse.successResponse(res, 200, "Notification deleted successfully", notification);
   } catch (error) {
-    return ApiResponse.errorResponse(res, 500, error.message || "Failed to mark notification as seen");
+    return ApiResponse.errorResponse(res, 500, error.message || "Failed to delete notification");
   }
 };
 

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import requirementSchema from "../schemas/requirement.schema.js";
 import ApprovedRequirement from "../schemas/approvedRequirement.schema.js";
 import ClosedDeal from "../schemas/closedDeal.schema.js";
+import productNotificationSchema from "../schemas/productNotification.schema.js";
 
 // Create a requirement (when a seller bids on a product)
 export const createRequirement = async (req, res) => {
@@ -213,7 +214,7 @@ export const getBuyerRequirements = async (req, res) => {
   }
 };
 
-// Get all notifications for buyer: products with at least one bid
+// Get all bid notifications for buyer from productNotificationSchema
 export const getBuyerBidNotifications = async (req, res) => {
   try {
     const buyerId = req.user?.userId;
@@ -221,39 +222,13 @@ export const getBuyerBidNotifications = async (req, res) => {
       return ApiResponse.errorResponse(res, 400, "Buyer not authenticated");
     }
 
-    // Find requirements for this buyer where there is at least one seller (bid)
-    const requirementsWithBids = await Requirement.find({
-      buyerId,
-      "sellers.0": { $exists: true }
+    // Fetch all notifications for this buyer from the database
+    const notifications = await productNotificationSchema.find({
+      userId: buyerId
     })
-      .populate({
-        path: "productId",
-        populate: { path: "categoryId", select: "-subCategories" }
-      })
-      .populate({
-        path: "sellers.sellerId",
-        select: "-password -__v"
-      })
-      .sort({ updatedAt: -1 })
+      .populate("productId")
+      .sort({ createdAt: -1 })
       .lean();
-
-    // Format notifications
-    const notifications = requirementsWithBids.map(req => ({
-      requirementId: req._id,
-      product: req.productId,
-      totalBids: req.sellers.length,
-      bidDate: req.sellers[req.sellers.length - 1].createdAt || req.updatedAt,
-      latestBid: req.sellers.length > 0 ? {
-        seller: req.sellers[req.sellers.length - 1].sellerId,
-        budgetAmount: req.sellers[req.sellers.length - 1].budgetAmount,
-        date: req.sellers[req.sellers.length - 1].createdAt || req.updatedAt
-      } : null,
-      allBids: req.sellers.map(s => ({
-        seller: s.sellerId,
-        budgetAmount: s.budgetAmount,
-        date: s.createdAt || req.updatedAt
-      }))
-    }));
 
     return ApiResponse.successResponse(
       res,
