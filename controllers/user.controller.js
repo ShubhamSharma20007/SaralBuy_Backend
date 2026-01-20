@@ -13,85 +13,85 @@ const serviceSid = process.env.TWILIO_ACCOUNT_SID;
 
 const otpStore = new Map();
 
-// export const sendOtp = async (req, res) => {
-//   let { pNo } = req.body;
-//   try {
-//     pNo = pNo.startsWith('+') ? pNo : `+91${pNo}`;
+export const localSendOtp = async (req, res) => {
+  let { pNo } = req.body;
+  try {
+    pNo = pNo.startsWith('+') ? pNo : `+91${pNo}`;
 
-//     // Generate 6-digit OTP
-//     const otp = Math.floor(1000 + Math.random() * 900000).toString();
-//     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
+    // Generate 6-digit OTP
+    const otp = Math.floor(1000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes expiry
 
-//     // Save in Map
-//     otpStore.set(pNo, { otp, expiresAt });
+    // Save in Map
+    otpStore.set(pNo, { otp, expiresAt });
 
-//     // For testing (later integrate SMS API)
-//     console.log(`OTP for ${pNo}: ${otp}`);
+    // For testing (later integrate SMS API)
+    console.log(`OTP for ${pNo}: ${otp}`);
 
-//     return ApiResponse.successResponse(res, 200, "Otp sent successfully",otp);
-//   } catch (err) {
-//     console.error("OTP error:", err);
-//     return ApiResponse.errorResponse(res, 400, err?.message || err);
-//   }
-// };
+    return ApiResponse.successResponse(res, 200, "Otp sent successfully",otp);
+  } catch (err) {
+    console.error("OTP error:", err);
+    return ApiResponse.errorResponse(res, 400, err?.message || err);
+  }
+};
 
 
-// export const verifyOtp = async (req, res) => {
-//   let { pNo, otp } = req.body;
+export const localVerifyOtp = async (req, res) => {
+  let { pNo, otp } = req.body;
 
-//   try {
-//     pNo = pNo.startsWith('+') ? pNo : `+91${pNo}`;
+  try {
+    pNo = pNo.startsWith('+') ? pNo : `+91${pNo}`;
 
-//     const otpData = otpStore.get(pNo);
-//     if (!otpData) {
-//       return ApiResponse.errorResponse(res, 400, "No OTP found for this number");
-//     }
+    const otpData = otpStore.get(pNo);
+    if (!otpData) {
+      return ApiResponse.errorResponse(res, 400, "No OTP found for this number");
+    }
 
-//     // Check expiry
-//     if (otpData.expiresAt < Date.now()) {
-//       otpStore.delete(pNo);
-//       return ApiResponse.errorResponse(res, 400, "OTP expired");
-//     }
+    // Check expiry
+    if (otpData.expiresAt < Date.now()) {
+      otpStore.delete(pNo);
+      return ApiResponse.errorResponse(res, 400, "OTP expired");
+    }
 
-//     // Check OTP
-//     if (otpData.otp !== otp) {
-//       return ApiResponse.errorResponse(res, 400, "Invalid OTP");
-//     }
+    // Check OTP
+    if (otpData.otp !== otp) {
+      return ApiResponse.errorResponse(res, 400, "Invalid OTP");
+    }
 
-//     // ✅ OTP verified
-//     otpStore.delete(pNo); // cleanup after success
+    // ✅ OTP verified
+    otpStore.delete(pNo); // cleanup after success
 
-//     let user = await userSchema.findOne({ phone: pNo });
-//     if (!user) {
-//       user = await userSchema.create({ phone: pNo });
-//     }
+    let user = await userSchema.findOne({ phone: pNo });
+    if (!user) {
+      user = await userSchema.create({ phone: pNo });
+    }
 
-//     const payload = { _id: user._id, phone: user.phone };
-//      const token = jwt.sign(payload,process.env.JWT_SECRET,{expiresIn:'7d'})
-//     // res.cookie('authToken', token, {
-//     //   httpOnly: true,
-//     //   secure: process.env.NODE_ENV === 'production',
-//     //   // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-//     //   sameSite:'None',
-//     //   maxAge: 7 * 24 * 60 * 60 * 1000, 
-//     //   path: '/',
-//     // });
-//     res.cookie('authToken',token,{
-//        sameSite: "none",
-//     httpOnly: true,
-//     secure: true,
-//     path:'/'
-//     })
+    const payload = { _id: user._id, phone: user.phone };
+     const token = jwt.sign(payload,process.env.JWT_SECRET,{expiresIn:'7d'})
+    // res.cookie('authToken', token, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === 'production',
+    //   // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    //   sameSite:'None',
+    //   maxAge: 7 * 24 * 60 * 60 * 1000, 
+    //   path: '/',
+    // });
+    res.cookie('authToken',token,{
+       sameSite: "none",
+    httpOnly: true,
+    secure: true,
+    path:'/'
+    })
 
-//     return ApiResponse.successResponse(res, 200, "Otp verified successfully", {
-//       token,
-//       user: { _id: user._id, phone: user.phone }
-//     });
-//   } catch (err) {
-//     console.error("Verify error:", err);
-//     return ApiResponse.errorResponse(res, 400, err?.message || err);
-//   }
-// };
+    return ApiResponse.successResponse(res, 200, "Otp verified successfully", {
+      token,
+      user: { _id: user._id, phone: user.phone }
+    });
+  } catch (err) {
+    console.error("Verify error:", err);
+    return ApiResponse.errorResponse(res, 400, err?.message || err);
+  }
+};
 
 
 
