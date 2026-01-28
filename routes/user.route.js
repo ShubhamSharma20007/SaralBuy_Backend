@@ -5,9 +5,10 @@ import upload from '../middleware/multer.js';
 import uploadSingleImage from '../middleware/uploadMiddleware.js';
 
 const router = express.Router();
-
-router.post('/send-otp', userController.sendOtp);
-router.post('/verify-otp',userController.verifyOtp)
+const otp =process.env.NODE_ENV === 'production' ?  userController.sendOtp:userController.localSendOtp
+const verify = process.env.NODE_ENV === 'production' ?userController.verifyOtp:userController.localVerifyOtp
+router.post('/send-otp',userController.sendOtp);
+router.post('/verify-otp',userController.verifyOtp);
 router.post('/logout', auth, userController.logoutUser);
 
 router.get('/profile', auth, userController.getProfile);

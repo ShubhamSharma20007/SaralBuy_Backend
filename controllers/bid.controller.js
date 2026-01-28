@@ -7,6 +7,7 @@ import productSchema from "../schemas/product.schema.js";
 import requirementSchema from "../schemas/requirement.schema.js";
 import userSchema from "../schemas/user.schema.js";
 import productNotificationSchema from "../schemas/productNotification.schema.js";
+import multiProductSchema from "../schemas/multiProduct.schema.js";
 // Create a new bid
 export const addBid = async (req, res) => {
   try {
@@ -66,26 +67,69 @@ export const addBid = async (req, res) => {
     );
 
     // Update/Create Requirement for buyer notifications
+    // Check if this product is part of a multiProduct group
     let requirement;
+    let allProductIds = [productId]; // Start with the current productId
+    
     try {
-      requirement = await requirementSchema.findOne({ productId, buyerId });
-      if (requirement) {
-        const existingSeller = requirement.sellers.find(
-          (s) => String(s.sellerId) === String(sellerId)
-        );
-        if (existingSeller) {
-          existingSeller.budgetAmount = budgetQuation;
-          existingSeller.bidId = bid._id;
-        } else {
-          requirement.sellers.push({ sellerId, budgetAmount: budgetQuation, bidId: bid._id });
+      
+      // Check if this product is part of a multiProduct group
+      const multiProduct = await multiProductSchema.findOne({
+        $or: [
+          { mainProductId: productId },
+          { subProducts: productId }
+        ]
+      }).lean();
+      
+      if (multiProduct) {
+        // If part of a multiProduct, collect all product IDs (main + subs)
+        allProductIds = [multiProduct.mainProductId];
+        if (multiProduct.subProducts && multiProduct.subProducts.length > 0) {
+          allProductIds = allProductIds.concat(multiProduct.subProducts);
         }
-        await requirement.save();
-      } else {
-        requirement = await requirementSchema.create({
-          productId,
-          buyerId,
-          sellers: [{ sellerId, budgetAmount: budgetQuation, bidId: bid._id }]
-        });
+        // Remove duplicates and convert to strings for comparison
+        allProductIds = [...new Set(allProductIds.map(id => id.toString()))];
+        console.log(`MultiProduct detected. Creating/updating requirements for ${allProductIds.length} products:`, allProductIds);
+      }
+    } catch (multiProductError) {
+      console.error("Failed to check multiProduct:", multiProductError.message);
+      // Continue with single product if multiProduct check fails
+    }
+    
+    // Create/update requirements for all products in the group
+    try {
+      for (const prodId of allProductIds) {
+        let req = await requirementSchema.findOne({ productId: prodId, buyerId });
+        if (req) {
+          const existingSeller = req.sellers.find(
+            (s) => String(s.sellerId) === String(sellerId)
+          );
+          if (existingSeller) {
+            existingSeller.budgetAmount = budgetQuation;
+            existingSeller.bidId = bid._id;
+          } else {
+            req.sellers.push({ sellerId, budgetAmount: budgetQuation, bidId: bid._id });
+          }
+          await req.save();
+          console.log(`Updated requirement for product ${prodId}, seller added/updated`);
+        } else {
+          req = await requirementSchema.create({
+            productId: prodId,
+            buyerId,
+            sellers: [{ sellerId, budgetAmount: budgetQuation, bidId: bid._id }]
+          });
+          console.log(`Created new requirement for product ${prodId}`);
+        }
+        
+        // Store the requirement for the main productId for socket emission
+        if (prodId === productId.toString()) {
+          requirement = req;
+        }
+      }
+      
+      // If requirement is still undefined, use the first one created
+      if (!requirement && allProductIds.length > 0) {
+        requirement = await requirementSchema.findOne({ productId: allProductIds[0], buyerId });
       }
     } catch (reqError) {
       console.error("Failed to update/create requirement for bid:", reqError.message);

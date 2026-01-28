@@ -802,8 +802,8 @@ export const getRequirementById = async (req, res) => {
       return ApiResponse.errorResponse(res, 400, "User not authenticated");
     }
 
-    // Fetch the requirement with populated product + sellers
-    const requirement = await Requirement.findById(id)
+    // Try to fetch the requirement by _id first (backward compatibility)
+    let requirement = await Requirement.findById(id)
       .populate({
         path: "productId",
         populate: { path: "categoryId", select: "-subCategories" },
@@ -814,6 +814,21 @@ export const getRequirementById = async (req, res) => {
         select: "-password -__v", // exclude sensitive fields
       })
       .lean();
+
+    // If not found by _id, try finding by productId (for multiProduct scenarios)
+    if (!requirement) {
+      requirement = await Requirement.findOne({ productId: id })
+        .populate({
+          path: "productId",
+          populate: { path: "categoryId", select: "-subCategories" },
+        })
+        .populate("buyerId")
+        .populate({
+          path: "sellers.sellerId",
+          select: "-password -__v",
+        })
+        .lean();
+    }
 
     if (!requirement) {
       return ApiResponse.errorResponse(res, 404, "Requirement not found");
