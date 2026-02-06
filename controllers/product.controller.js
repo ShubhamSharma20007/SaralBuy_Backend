@@ -1538,7 +1538,7 @@ export const getAllDraftProducts = async (req, res) => {
     const draftProducts = await productSchema.find({
       draft: true,
       userId: userId
-    }).populate("categoryId");
+    }).populate("categoryId").sort({createdAt:-1});
 
     const multiProducts = await multiProductSchema.find({
       $or: [
@@ -2172,3 +2172,18 @@ export const saveAsDraft = async (req, res) => {
     return ApiResponse.errorResponse(res, 500, error.message || "Failed to save draft");
   }
 };
+
+export const deleteDraftProduct =async(req,res)=>{
+  try {
+    const {productId}= req.params;
+    const deletedProduct = await productSchema.deleteOne({_id:productId,draft:true});
+    if(deletedProduct.deletedCount === 0){
+      return ApiResponse.errorResponse(res,404,"Product not found");
+    }
+    // delete from multiple products
+   await multiProductSchema.deleteOne({mainProductId:productId,draft:true});
+    return ApiResponse.successResponse(res,200,"Product deleted successfully",deletedProduct);
+  } catch (error) {
+    return ApiResponse.errorResponse(res,400,error.message || "Failed to delete product");
+  }
+}

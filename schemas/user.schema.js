@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
   lastLogin:{
     type:Date,
     default:null
+  },
+  businessName:{
+    type:String,
+    default:null
   }
 }, { timestamps: true });
 

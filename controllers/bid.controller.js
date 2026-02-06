@@ -8,6 +8,7 @@ import requirementSchema from "../schemas/requirement.schema.js";
 import userSchema from "../schemas/user.schema.js";
 import productNotificationSchema from "../schemas/productNotification.schema.js";
 import multiProductSchema from "../schemas/multiProduct.schema.js";
+import closedDealSchema from "../schemas/closedDeal.schema.js";
 // Create a new bid
 export const addBid = async (req, res) => {
   try {
@@ -34,6 +35,12 @@ export const addBid = async (req, res) => {
     const existingBid = await Bid.findOne({ sellerId, buyerId, productId });
     if (existingBid) {
       return ApiResponse.errorResponse(res, 400, "You have already placed a bid for this product");
+    }
+
+    // check the product is already sold
+    const isSold = await closedDealSchema.exists({productId,closedDealStatus:'completed',dealStatus:'accepted'})
+    if(Boolean(isSold?._id)){
+      return ApiResponse.errorResponse(res, 400, "This product is already sold");
     }
 
 
