@@ -208,7 +208,7 @@ export const getAllBids = async (req, res) => {
     // Build aggregation pipeline
     const pipeline = [
       {
-        $match: { buyerId: new mongoose.Types.ObjectId(userId) }
+        $match: { sellerId: new mongoose.Types.ObjectId(userId) }
       },
       {
         $lookup: {
