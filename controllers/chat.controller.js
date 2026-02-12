@@ -1,5 +1,6 @@
 import Chat from '../schemas/chat.schema.js';
 import User from '../schemas/user.schema.js';
+import productNotificationSchema from '../schemas/productNotification.schema.js';
 
 /**
  * Rate a chat by setting its chatrating field.
@@ -33,6 +34,28 @@ export const rateChat = async (req, res) => {
     // Get the user who rated
     const rater = await User.findById(ratedBy).select('firstName lastName');
     const raterName = rater ? `${rater.firstName || ''} ${rater.lastName || ''}`.trim() : 'Someone';
+
+    // Save notification to database for the other party
+    try {
+      // Determine who should receive the notification (the other party)
+      const recipientId = String(chat.buyerId._id) === String(ratedBy) 
+        ? chat.sellerId._id  // If buyer rated, notify seller
+        : chat.buyerId._id;  // If seller rated, notify buyer
+      
+      if (chat.productId) {
+        await productNotificationSchema.create({
+          userId: recipientId,
+          productId: chat.productId,
+          title: `Chat rated ${rating} stars`,
+          description: `${raterName} rated your conversation ${rating} out of 5 stars`,
+          seen: false
+        });
+        
+        console.log(`Rating notification saved to database for user ${recipientId}`);
+      }
+    } catch (notifError) {
+      console.error("Failed to create rating notification:", notifError.message);
+    }
 
     // Emit socket notification to both buyer and seller
     const io = global.io;

@@ -7,6 +7,7 @@ import requirementSchema from "../schemas/requirement.schema.js";
 import ApprovedRequirement from "../schemas/approvedRequirement.schema.js";
 import ClosedDeal from "../schemas/closedDeal.schema.js";
 import productNotificationSchema from "../schemas/productNotification.schema.js";
+import userSchema from "../schemas/user.schema.js";
 
 // Create a requirement (when a seller bids on a product)
 export const createRequirement = async (req, res) => {
@@ -223,12 +224,29 @@ export const getBuyerBidNotifications = async (req, res) => {
     }
 
     // Fetch all notifications for this buyer from the database
-    const notifications = await productNotificationSchema.find({
-      userId: buyerId
-    })
-      .populate("productId")
-      .sort({ createdAt: -1 })
-      .lean();
+    // Use aggregate to handle cases where productId might not exist
+    const notifications = await productNotificationSchema.aggregate([
+      {
+        $match: { userId: new mongoose.Types.ObjectId(buyerId) }
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "productId"
+        }
+      },
+      {
+        $unwind: {
+          path: "$productId",
+          preserveNullAndEmptyArrays: true  // Keep notifications even if product doesn't exist
+        }
+      },
+      {
+        $sort: { createdAt: -1 }
+      }
+    ]);
 
     return ApiResponse.successResponse(
       res,
@@ -618,6 +636,26 @@ export const closeDeal = async (req, res) => {
 
     // Do NOT delete ApprovedRequirement yet. Wait for seller approval.
 
+    // Save notification to database for seller
+    try {
+      const buyer = await userSchema.findById(buyerId).select("firstName lastName").lean();
+      const buyerName = buyer?.firstName 
+        ? `${buyer.firstName} ${buyer.lastName || ''}`.trim()
+        : "A buyer";
+      
+      await productNotificationSchema.create({
+        userId: sellerId,
+        productId: productId,
+        title: `Close deal request for ${product.title}`,
+        description: `${buyerName} wants to close the deal with final budget ₹${finalBudget}`,
+        seen: false
+      });
+      
+      console.log(`Close deal notification saved for seller ${sellerId}`);
+    } catch (notifError) {
+      console.error("Failed to create close deal notification:", notifError.message);
+    }
+
     // Emit real-time socket event to notify both buyer and seller about the deal request
     if (global.io && global.userSockets) {
       const dealRequestPayload = {
@@ -695,6 +733,35 @@ export const respondToCloseDeal = async (req, res) => {
     }
 
     await deal.save();
+
+    // Save notification to database for buyer
+    try {
+      const product = await productSchema.findById(deal.productId).select("title").lean();
+      const seller = await userSchema.findById(sellerId).select("firstName lastName").lean();
+      const sellerName = seller?.firstName 
+        ? `${seller.firstName} ${seller.lastName || ''}`.trim()
+        : "Seller";
+      
+      const notificationTitle = action === 'accept' 
+        ? `Deal accepted for ${product?.title || 'product'}`
+        : `Deal rejected for ${product?.title || 'product'}`;
+      
+      const notificationDesc = action === 'accept'
+        ? `${sellerName} accepted your close deal request. The deal is now completed!`
+        : `${sellerName} rejected your close deal request.`;
+      
+      await productNotificationSchema.create({
+        userId: deal.buyerId,
+        productId: deal.productId,
+        title: notificationTitle,
+        description: notificationDesc,
+        seen: false
+      });
+      
+      console.log(`Close deal response notification saved for buyer ${deal.buyerId}`);
+    } catch (notifError) {
+      console.error("Failed to create close deal response notification:", notifError.message);
+    }
 
     // Socket notifications
     if (global.io && global.userSockets) {
