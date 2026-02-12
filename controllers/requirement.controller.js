@@ -229,6 +229,7 @@ export const getBuyerBidNotifications = async (req, res) => {
       {
         $match: { userId: new mongoose.Types.ObjectId(buyerId) }
       },
+      // Lookup product details
       {
         $lookup: {
           from: "products",
@@ -240,7 +241,37 @@ export const getBuyerBidNotifications = async (req, res) => {
       {
         $unwind: {
           path: "$productId",
-          preserveNullAndEmptyArrays: true  // Keep notifications even if product doesn't exist
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup buyer details (product owner) from product's userId
+      {
+        $lookup: {
+          from: "users",
+          localField: "productId.userId",
+          foreignField: "_id",
+          as: "buyerId"
+        }
+      },
+      {
+        $unwind: {
+          path: "$buyerId",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup seller/recipient details from notification's userId
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "sellerId"
+        }
+      },
+      {
+        $unwind: {
+          path: "$sellerId",
+          preserveNullAndEmptyArrays: true
         }
       },
       {

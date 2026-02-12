@@ -3,7 +3,7 @@ import User from '../schemas/user.schema.js';
 import productNotificationSchema from '../schemas/productNotification.schema.js';
 
 /**
- * Rate a chat by setting its chatrating field.
+ * Rate a chat by setting buyerRating or sellerRating based on who is rating.
  * Expects: req.body = { chatId: String, rating: Number, ratedBy: String (userId) }
  */
 export const rateChat = async (req, res) => {
@@ -20,25 +20,37 @@ export const rateChat = async (req, res) => {
       return res.status(400).json({ message: 'ratedBy (userId) is required.' });
     }
 
+    // First fetch the chat to determine if rater is buyer or seller
+    const existingChat = await Chat.findById(chatId);
+    if (!existingChat) {
+      return res.status(404).json({ message: 'Chat not found.' });
+    }
+
+    // Determine which rating field to update
+    const isBuyer = String(existingChat.buyerId) === String(ratedBy);
+    const isSeller = String(existingChat.sellerId) === String(ratedBy);
+
+    if (!isBuyer && !isSeller) {
+      return res.status(403).json({ message: 'You are not a participant in this chat.' });
+    }
+
+    const updateField = isBuyer ? { buyerRating: rating } : { sellerRating: rating };
+
     const chat = await Chat.findByIdAndUpdate(
       chatId,
-      { chatrating: rating },
+      updateField,
       { new: true }
     ).populate('buyerId', 'firstName lastName')
      .populate('sellerId', 'firstName lastName');
 
-    if (!chat) {
-      return res.status(404).json({ message: 'Chat not found.' });
-    }
-
     // Get the user who rated
     const rater = await User.findById(ratedBy).select('firstName lastName');
     const raterName = rater ? `${rater.firstName || ''} ${rater.lastName || ''}`.trim() : 'Someone';
+    const raterRole = isBuyer ? 'Buyer' : 'Seller';
 
     // Save notification to database for the other party
     try {
-      // Determine who should receive the notification (the other party)
-      const recipientId = String(chat.buyerId._id) === String(ratedBy) 
+      const recipientId = isBuyer
         ? chat.sellerId._id  // If buyer rated, notify seller
         : chat.buyerId._id;  // If seller rated, notify buyer
       
@@ -46,8 +58,8 @@ export const rateChat = async (req, res) => {
         await productNotificationSchema.create({
           userId: recipientId,
           productId: chat.productId,
-          title: `Chat rated ${rating} stars`,
-          description: `${raterName} rated your conversation ${rating} out of 5 stars`,
+          title: `${raterRole} rated chat ${rating} stars`,
+          description: `${raterName} (${raterRole}) rated your conversation ${rating} out of 5 stars`,
           seen: false
         });
         
@@ -71,8 +83,11 @@ export const rateChat = async (req, res) => {
         rating,
         ratedBy,
         raterName,
+        raterRole,
+        buyerRating: chat.buyerRating,
+        sellerRating: chat.sellerRating,
         timestamp: new Date(),
-        message: `${raterName} rated this chat ${rating} stars`
+        message: `${raterName} (${raterRole}) rated this chat ${rating} stars`
       };
 
       // Notify buyer

@@ -86,9 +86,15 @@ const chatSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Add chatrating field to the schema
+// Add buyer and seller rating fields to the schema
 chatSchema.add({
-  chatrating: {
+  buyerRating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null,
+  },
+  sellerRating: {
     type: Number,
     min: 1,
     max: 5,
