@@ -336,7 +336,8 @@ export const getCompletedApprovedRequirements = async (req, res) => {
       $or: [
         { sellerId: userId },
         { buyerId: userId }
-      ]
+      ],
+      dealStatus:'accepted'
     })
       .populate({
         path: "productId",
@@ -473,6 +474,24 @@ export const getApprovedPendingRequirements = async (req, res) => {
       })
       .lean();
 
+      const productIds = approvedRequirements
+      .map((ar) => ar.productId?._id)
+      .filter(Boolean);
+
+       const closedDeals = await ClosedDeal.find({
+      sellerId: sellerId,
+      productId: { $in: productIds },
+    })
+      .select("productId dealStatus closedDealStatus finalBudget buyerId")
+      .lean();
+
+       const dealMap = {};
+    closedDeals.forEach((deal) => {
+      const key = `${deal.productId.toString()}_${deal.buyerId.toString()}`;
+      dealMap[key] = deal;
+    });
+
+
     // Helper to clean product data
     const cleanProduct = (prod) => {
       if (!prod) return prod;
@@ -482,6 +501,7 @@ export const getApprovedPendingRequirements = async (req, res) => {
       delete p.__v;
       return p;
     };
+
 
     // For each approved requirement, check if product is part of a multiProduct
     const enhancedRequirements = await Promise.all(
@@ -501,6 +521,9 @@ export const getApprovedPendingRequirements = async (req, res) => {
 
         if (!responseObj.product?._id) {
           responseObj.product = null;
+          responseObj.dealStatus = "pending";
+          responseObj.closedDealStatus = null;
+          responseObj.finalBudget = null;
           return responseObj;
         }
 
@@ -541,14 +564,26 @@ export const getApprovedPendingRequirements = async (req, res) => {
             subProducts: [],
           };
         }
+            const dealKey = `${ar.productId._id.toString()}_${ar.buyerId.toString()}`;
+        const matchedDeal = dealMap[dealKey];
 
+        responseObj.dealStatus = matchedDeal?.dealStatus || "pending";
+        responseObj.closedDealStatus = matchedDeal?.closedDealStatus || null;
+        responseObj.finalBudget = matchedDeal?.finalBudget || null;
         return responseObj;
       })
     );
 
     // ✅ Apply pagination at the end
-    const total = enhancedRequirements.length;
-    const paginatedRequirements = enhancedRequirements.slice(skip, skip + limit);
+    const filteredRequirements = enhancedRequirements.filter(
+      (item) =>
+        item?.closedDealStatus === "waiting_seller_approval" ||
+        item?.closedDealStatus === "pending" ||
+        item?.closedDealStatus === "rejected" 
+    );
+
+    const total = filteredRequirements.length;
+    const paginatedRequirements = filteredRequirements.slice(skip, skip + limit);
 
     return ApiResponse.successResponse(
       res,
