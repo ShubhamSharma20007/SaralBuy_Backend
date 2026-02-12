@@ -286,7 +286,7 @@ try {
           messageCount: messages.length,
           buyerUnreadCount: chat?.buyerUnreadCount || 0,
           sellerUnreadCount: chat?.sellerUnreadCount || 0,
-          chatrating: chat?.chatrating
+          chatrating: chat?.chatrating,
         });
       } catch (err) {
         console.error('Error fetching chat history:', err);

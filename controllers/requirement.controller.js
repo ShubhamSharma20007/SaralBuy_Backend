@@ -693,7 +693,7 @@ export const respondToCloseDeal = async (req, res) => {
   try {
     const { dealId, action } = req.body; // action: 'accept' or 'reject'
     const sellerId = req.user?.userId;
-
+;
     if (!dealId || !action) {
       return ApiResponse.errorResponse(res, 400, "Missing dealId or action");
     }
@@ -731,6 +731,38 @@ export const respondToCloseDeal = async (req, res) => {
     } else {
       return ApiResponse.errorResponse(res, 400, "Invalid action");
     }
+
+    const findBuyer = await userSchema.findById(deal.buyerId);
+    if(!findBuyer){
+        return ApiResponse.errorResponse(res, 404, "Buyer not found");
+    }
+    const findSeller = await userSchema.findById(deal.sellerId);
+    if(!findSeller){
+        return ApiResponse.errorResponse(res, 404, "Seller not found");
+    }
+
+    const findProduct =  await productSchema.findById(deal.productId);
+    if(!findProduct){
+        return ApiResponse.errorResponse(res, 404, "Product not found");
+    }
+
+    
+    // create a notificaiton 
+    const  buyerNotification =  await productNotificationSchema.create({
+       userId: deal.buyerId,
+        productId: deal.productId,
+         title: `Deal Closed`,
+         description:`Your ${findProduct.title} Deal has Been Closed with ${findSeller.firstName} ${findSeller.lastName}`,
+         seen:false,
+    })
+
+     const  sellerNotification =  await productNotificationSchema.create({
+       userId: deal.sellerId,
+        productId: deal.productId,
+         title: `Deal Closed`,
+         description:`Your ${findProduct.title} Item Deal has Been Closed with ${findBuyer.firstName} ${findBuyer.lastName}`,
+         seen:false,
+    })
 
     await deal.save();
 
