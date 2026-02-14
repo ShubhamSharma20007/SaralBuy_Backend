@@ -1,6 +1,7 @@
 import Chat from '../schemas/chat.schema.js';
 import User from '../schemas/user.schema.js';
 import productNotificationSchema from '../schemas/productNotification.schema.js';
+import productSchema from '../schemas/product.schema.js';
 
 /**
  * Rate a chat by setting buyerRating or sellerRating based on who is rating.
@@ -60,6 +61,7 @@ export const rateChat = async (req, res) => {
           productId: chat.productId,
           title: `${raterRole} rated chat ${rating} stars`,
           description: `${raterName} (${raterRole}) rated your conversation ${rating} out of 5 stars`,
+          senderId: ratedBy,
           seen: false
         });
         
@@ -77,6 +79,11 @@ export const rateChat = async (req, res) => {
       const buyerIdStr = String(chat.buyerId._id);
       const sellerIdStr = String(chat.sellerId._id);
 
+      // Enrich notification payload with full objects
+      const fullBuyer = await User.findById(chat.buyerId._id).select('firstName lastName email profileImage');
+      const fullSeller = await User.findById(chat.sellerId._id).select('firstName lastName email profileImage');
+      const fullProduct = chat.productId ? await productSchema.findById(chat.productId).select('title images price') : null;
+
       const notificationPayload = {
         chatId: chat._id,
         roomId: chat.roomId,
@@ -87,7 +94,11 @@ export const rateChat = async (req, res) => {
         buyerRating: chat.buyerRating,
         sellerRating: chat.sellerRating,
         timestamp: new Date(),
-        message: `${raterName} (${raterRole}) rated this chat ${rating} stars`
+        message: `${raterName} (${raterRole}) rated this chat ${rating} stars`,
+        // Full details for consistency with notification API
+        buyerId: fullBuyer,
+        sellerId: fullSeller,
+        productId: fullProduct
       };
 
       // Notify buyer

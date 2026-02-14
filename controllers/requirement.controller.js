@@ -244,34 +244,88 @@ export const getBuyerBidNotifications = async (req, res) => {
           preserveNullAndEmptyArrays: true
         }
       },
-      // Lookup buyer details (product owner) from product's userId
-      {
-        $lookup: {
-          from: "users",
-          localField: "productId.userId",
-          foreignField: "_id",
-          as: "buyerId"
-        }
-      },
-      {
-        $unwind: {
-          path: "$buyerId",
-          preserveNullAndEmptyArrays: true
-        }
-      },
-      // Lookup seller/recipient details from notification's userId
+      // Lookup buyer details (recipient of the notification)
       {
         $lookup: {
           from: "users",
           localField: "userId",
           foreignField: "_id",
-          as: "sellerId"
+          as: "buyerDetails"
         }
       },
       {
         $unwind: {
-          path: "$sellerId",
+          path: "$buyerDetails",
           preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup seller/sender details
+      {
+        $lookup: {
+          from: "users",
+          localField: "senderId",
+          foreignField: "_id",
+          as: "senderDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$senderDetails",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Project to format the output as requested: buyerId -> buyerDetails, sellerId -> senderDetails
+      // Logic for assigning buyerId and sellerId:
+      // The Product Owner is ALWAYS the Buyer.
+      // The Other Party is the Seller.
+      
+      {
+        $addFields: {
+          // Check if the recipient (userId) is the product owner
+          isRecipientBuyer: { $eq: ["$userId", "$productId.userId"] },
+          // Check if the sender (senderId) is the product owner
+          isSenderBuyer: { $eq: ["$senderId", "$productId.userId"] }
+        }
+      },
+      {
+        $addFields: {
+          buyerId: {
+            $cond: {
+              if: "$isRecipientBuyer",
+              then: "$buyerDetails",
+              else: {
+                $cond: {
+                  if: "$isSenderBuyer",
+                  then: "$senderDetails",
+                  else: "$buyerDetails" // Fallback (shouldn't happen if data is consistent, but default to recipient as buyer)
+                }
+              }
+            }
+          },
+          sellerId: {
+            $cond: {
+              if: "$isRecipientBuyer",
+              then: "$senderDetails", 
+              else: {
+                 $cond: {
+                  if: "$isSenderBuyer",
+                  then: "$buyerDetails", 
+                  else: "$senderDetails" 
+                 }
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          buyerDetails: 0,
+          senderDetails: 0,
+          isRecipientBuyer: 0,
+          isSenderBuyer: 0,
+          "buyerId.password": 0, "buyerId.__v": 0,
+          "sellerId.password": 0, "sellerId.__v": 0,
+          "product.userId": 0, "product.__v": 0
         }
       },
       {
@@ -714,6 +768,7 @@ export const closeDeal = async (req, res) => {
         productId: productId,
         title: `Close deal request for ${product.title}`,
         description: `${buyerName} wants to close the deal with final budget ₹${finalBudget}`,
+        senderId: buyerId,
         seen: false
       });
       
@@ -724,13 +779,22 @@ export const closeDeal = async (req, res) => {
 
     // Emit real-time socket event to notify both buyer and seller about the deal request
     if (global.io && global.userSockets) {
+      
+      const fullBuyer = await userSchema.findById(buyerId).select('firstName lastName email profileImage');
+      const fullSeller = await userSchema.findById(sellerId).select('firstName lastName email profileImage');
+      const fullProduct = await productSchema.findById(productId).select('title images price');
+
       const dealRequestPayload = {
         deal: closedDeal,
         productId,
         buyerId,
         sellerId,
         finalBudget,
-        message: "Buyer initiated close deal request"
+        message: "Buyer initiated close deal request",
+        // Full details for consistency with notification API
+        buyerDetails: fullBuyer,
+        sellerDetails: fullSeller,
+        productDetails: fullProduct
       };
 
       // Notify seller
@@ -819,6 +883,7 @@ export const respondToCloseDeal = async (req, res) => {
         productId: deal.productId,
          title: `Deal Closed`,
          description:`Your ${findProduct.title} Deal has Been Closed with ${findSeller.firstName} ${findSeller.lastName}`,
+         senderId: deal.sellerId,
          seen:false,
     })
 
@@ -827,6 +892,7 @@ export const respondToCloseDeal = async (req, res) => {
         productId: deal.productId,
          title: `Deal Closed`,
          description:`Your ${findProduct.title} Item Deal has Been Closed with ${findBuyer.firstName} ${findBuyer.lastName}`,
+         senderId: deal.buyerId,
          seen:false,
     })
 
@@ -853,6 +919,7 @@ export const respondToCloseDeal = async (req, res) => {
         productId: deal.productId,
         title: notificationTitle,
         description: notificationDesc,
+        senderId: sellerId,
         seen: false
       });
       
@@ -863,10 +930,19 @@ export const respondToCloseDeal = async (req, res) => {
 
     // Socket notifications
     if (global.io && global.userSockets) {
+        
+        const fullBuyer = await userSchema.findById(deal.buyerId).select('firstName lastName email profileImage');
+        const fullSeller = await userSchema.findById(deal.sellerId).select('firstName lastName email profileImage');
+        const fullProduct = await productSchema.findById(deal.productId).select('title images price');
+
         const payload = {
             deal,
             action,
-            message: `Seller ${action}ed the deal`
+            message: `Seller ${action}ed the deal`,
+            // Full details for consistency with notification API
+            buyerDetails: fullBuyer,
+            sellerDetails: fullSeller,
+            productDetails: fullProduct
         };
         
         // Notify Buyer

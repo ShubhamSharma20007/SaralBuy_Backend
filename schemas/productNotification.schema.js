@@ -5,6 +5,7 @@ const productNotificationSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   title: { type: String, required: true },
   description: { type: String, required: true },
+  senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   seen: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });

@@ -177,8 +177,9 @@ export const addBid = async (req, res) => {
       const notification = await productNotificationSchema.create({
         userId: updatedProduct.userId, // The buyer (product owner)
         productId: productId,
-        title: `New bid on ${updatedProduct.title}`,
-        description: `${sellerName} placed a bid of ₹${budgetQuation}. Total bids: ${updatedProduct.totalBidCount}`,
+        title: `New quote on ${updatedProduct.title}`,
+        description: `${sellerName} placed a quote of ₹${budgetQuation}. Total quotes: ${updatedProduct.totalBidCount}`,
+        senderId: sellerId,
         seen: false
       });
       
@@ -215,7 +216,12 @@ export const getAllBids = async (req, res) => {
     // Build aggregation pipeline
     const pipeline = [
       {
-        $match: { sellerId: new mongoose.Types.ObjectId(userId) }
+        $match: {
+          $or: [
+            { sellerId: new mongoose.Types.ObjectId(userId) },
+            { buyerId: new mongoose.Types.ObjectId(userId) }
+          ]
+        }
       },
       {
         $lookup: {
