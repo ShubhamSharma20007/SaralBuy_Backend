@@ -10,7 +10,6 @@ export default function mongoCtx(){
     })
     .then(() => {
         console.log("Connected to MongoDB 🚀");
-        throw new Error('NEW ERROR Added')
     })
     .catch((error) => {
         console.error("Error connecting to MongoDB", error);
