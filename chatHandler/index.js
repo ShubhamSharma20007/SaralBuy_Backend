@@ -736,6 +736,64 @@ socket.on('send_message', async (data) => {
       });
     });
 
+    // Get list of online users for user's chat participants
+    socket.on('get_online_users', async (data) => {
+      const { userId } = data;
+      if (!userId) {
+        socket.emit('error', { message: 'Missing userId for fetching online users' });
+        return;
+      }
+
+      try {
+        // Find all chats where this user is a participant
+        const chats = await Chat.find({
+          $or: [
+            { buyerId: new mongoose.Types.ObjectId(userId) },
+            { sellerId: new mongoose.Types.ObjectId(userId) }
+          ]
+        }).select('buyerId sellerId').lean();
+
+        // Collect all unique user IDs who have chats with this user
+        const chatParticipantIds = new Set();
+        chats.forEach(chat => {
+          const buyerIdStr = String(chat.buyerId);
+          const sellerIdStr = String(chat.sellerId);
+          if (buyerIdStr !== userId) chatParticipantIds.add(buyerIdStr);
+          if (sellerIdStr !== userId) chatParticipantIds.add(sellerIdStr);
+        });
+
+        // Filter to only online users
+        const onlineUserIds = [];
+        for (const participantId of chatParticipantIds) {
+          const isOnline = userSockets.has(participantId) && userSockets.get(participantId).size > 0;
+          if (isOnline) onlineUserIds.push(participantId);
+        }
+
+        // Emit online users list to the requesting socket
+        socket.emit('online_users_list', { userIds: onlineUserIds });
+      } catch (err) {
+        console.error('Error fetching online users:', err);
+        socket.emit('error', { message: 'Failed to fetch online users', error: err.message });
+      }
+    });
+
+    // Get online status of a specific user
+    socket.on('get_user_status', (data) => {
+      const { userId, targetUserId } = data;
+      if (!targetUserId) {
+        socket.emit('error', { message: 'Missing targetUserId for checking status' });
+        return;
+      }
+
+      const isOnline = userSockets.has(String(targetUserId)) && userSockets.get(String(targetUserId)).size > 0;
+      
+      socket.emit('user_status_response', {
+        userId: targetUserId,
+        requesterId: userId,
+        isOnline
+      });
+    });
+
     // Handle rating a chat
     socket.on('rate_chat', async (data) => {
       const { chatId, rating, ratedBy } = data;

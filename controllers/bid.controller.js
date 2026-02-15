@@ -168,13 +168,14 @@ export const addBid = async (req, res) => {
     }
 
     // Create notification in productNotificationSchema
+    let notification = null;
     try {
       const seller = await userSchema.findById(sellerId).select("firstName lastName").lean();
       const sellerName = seller?.firstName 
         ? `${seller.firstName} ${seller.lastName || ''}`.trim()
         : "A seller";
       
-      const notification = await productNotificationSchema.create({
+      notification = await productNotificationSchema.create({
         userId: updatedProduct.userId, // The buyer (product owner)
         productId: productId,
         title: `New quote on ${updatedProduct.title}`,
@@ -188,11 +189,33 @@ export const addBid = async (req, res) => {
       console.error("Failed to create notification:", notifError.message);
     }
 
+    // Populate seller and buyer details for response
+    let populatedBid = bid.toObject();
+    try {
+      const [sellerDetails, buyerDetails, productDetails] = await Promise.all([
+        userSchema.findById(sellerId).select("-password -__v").lean(),
+        userSchema.findById(buyerId).select("-password -__v").lean(),
+        productSchema.findById(productId).select("title images categoryId").lean()
+      ]);
+      
+      populatedBid.seller = sellerDetails;
+      populatedBid.buyer = buyerDetails;
+      populatedBid.product = productDetails;
+    } catch (populateError) {
+      console.error("Failed to populate bid details:", populateError.message);
+    }
+
     return ApiResponse.successResponse(
       res,
       200,
       "Bid created successfully",
-      bid
+      {
+        bid: populatedBid,
+        productId: productId,
+        sellerId: sellerId,
+        buyerId: updatedProduct.userId,
+        notification: notification ? { _id: notification._id, senderId: notification.senderId } : null
+      }
     );
   } catch (err) {
     return ApiResponse.errorResponse(
