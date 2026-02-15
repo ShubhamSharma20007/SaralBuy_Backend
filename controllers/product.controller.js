@@ -2187,3 +2187,61 @@ export const deleteDraftProduct =async(req,res)=>{
     return ApiResponse.errorResponse(res,400,error.message || "Failed to delete product");
   }
 }
+export const getTrendingCategory = async(req,res)=>{
+  try {
+    // const products = await productSchema.find({draft:false}).sort({createdAt:-1}).populate('categoryId').limit(5)
+    // return ApiResponse.successResponse(res,200,"Trending categories",products);
+    const trendingProducts = await productSchema.aggregate([
+        {
+          $match:{
+            draft:false
+          }
+        },
+          { $sort: { createdAt: -1 } },
+        {
+          $group:{
+            _id:'$categoryId',
+            count: { $sum:1 },
+            product: { $first: "$$ROOT" },
+          }
+        },
+        {
+          $sort:{
+            count:-1
+          }
+        },
+        {
+          $limit:5
+        },
+        {
+          $lookup:{
+            from:'categories',
+            localField:'_id',
+            foreignField:'_id',
+            as:'category'
+          }
+        },
+        {
+          $unwind:'$category'
+        },
+
+        {
+          $project:{
+            _id:0,
+              category: {
+                _id: "$category._id",
+                categoryName: "$category.categoryName",
+                image: "$category.image"
+              },
+            productId:'$product._id'
+          }
+        },
+
+
+    ])
+    return ApiResponse.successResponse(res,200,"Trending categories",trendingProducts);
+  } catch (error) {
+    return ApiResponse.errorResponse(res,400,error.message || "Failed to get trending categories");
+    
+  }
+}
