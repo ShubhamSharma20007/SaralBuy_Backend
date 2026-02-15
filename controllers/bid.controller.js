@@ -217,10 +217,11 @@ export const getAllBids = async (req, res) => {
     const pipeline = [
       {
         $match: {
-          $or: [
-            { sellerId: new mongoose.Types.ObjectId(userId) },
-            { buyerId: new mongoose.Types.ObjectId(userId) }
-          ]
+         sellerId: new mongoose.Types.ObjectId(userId) ,
+          // $or: [
+          //   { sellerId: new mongoose.Types.ObjectId(userId) },
+          //   { buyerId: new mongoose.Types.ObjectId(userId) }
+          // ]
         }
       },
       {
@@ -243,8 +244,7 @@ export const getAllBids = async (req, res) => {
       });
     }
 
-    // Continue pipeline
-    pipeline.push(
+   pipeline.push(
       {
         $lookup: {
           from: "users",
@@ -254,6 +254,7 @@ export const getAllBids = async (req, res) => {
         }
       },
       { $unwind: "$seller" },
+
       {
         $lookup: {
           from: "users",
@@ -263,34 +264,38 @@ export const getAllBids = async (req, res) => {
         }
       },
       { $unwind: "$buyer" },
-      // {
-      //   $project: {
-      //     _id: 1,
-      //     budgetQuation: 1,
-      //     status: 1,
-      //     availableBrand: 1,
-      //     earliestDeliveryDate: 1,
-      //     businessType: 1,
-      //     createdAt: 1,
-      //     updatedAt: 1,
-      //     product: 1,
-      //     seller: {
-      //       _id: 1,
-      //       firstName: 1,
-      //       lastName: 1,
-      //       email: 1,
-      //       phone: 1
-      //     },
-      //     buyer: {
-      //       _id: 1,
-      //       firstName: 1,
-      //       lastName: 1,
-      //       email: 1,
-      //       phone: 1
-      //     }
-      //   }
-      // }
+
+      {
+        $lookup: {
+          from: "closeddeals",
+          let: { productId: "$productId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$productId", "$$productId"] },
+                closedDealStatus: { $in: ["completed", "rejected"] }
+              }
+            }
+          ],
+          as: "closedDeal"
+        }
+      },
+      {
+        $unwind:{
+          path:'$closedDeal',
+          preserveNullAndEmptyArrays:true
+        }
+      },
+      {
+        $addFields:{
+          closeDealStatus:'$closedDeal.closedDealStatus'
+        }
+      },
+    {
+         $unset: "closedDeal"
+    },
     );
+
 
     // For total count (before pagination)
     const countPipeline = [...pipeline];

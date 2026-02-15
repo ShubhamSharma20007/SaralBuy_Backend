@@ -99,35 +99,30 @@ export const verifyOtp = async (req, res) => {
 
 // export const sendOtp = async (req, res) => {
 //   let { pNo } = req.body;
-
 //   try {
 //     const apiKey = process.env.FACTOR_MESSAGE_API;
-    
 //     pNo = pNo.startsWith('+') ? pNo.slice(1) : `91${pNo}`;
-//     console.log('Phone Number:', pNo)
-    
-//     //  for Inactive user's
+//     console.log('Phone Number:', pNo);
+
+//     // Check for inactive users
 //     const findUser = await userSchema.findOne({
-//         phone: new RegExp(`^\\+${pNo}$`, 'i'),
-//         status: 'inactive',
-//         role:'user'
-//       });
-//     if(findUser){
+//       phone: new RegExp(`^\\+${pNo}$`, 'i'),
+//       status: 'inactive',
+//       role: 'user'
+//     });
+    
+//     if (findUser) {
 //       return ApiResponse.errorResponse(res, 400, "Your account is not active. Please contact to admin");
 //     }
 
-//     // Generate OTP locally so we can log it
-//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-//     console.log('🔐🔐🔐 GENERATED OTP:', otp, '🔐🔐🔐');
-
-//     // Send OTP via 2Factor API
-//     const apiUrl = `https://2factor.in/API/V1/${apiKey}/SMS/${pNo}/${otp}/OTP1`;
+//     // ✅ CORRECT ENDPOINT: Let 2Factor generate and send OTP via SMS
+//     // Use /SMS/+91xxxxxxxxxx/AUTOGEN/SalarBuy format
+//     const apiUrl = `https://2factor.in/API/V1/${apiKey}/SMS/+${pNo}/AUTOGEN/SalarBuy`;
+    
 //     console.log('Sending OTP to:', pNo);
-
-//     const response = await fetch(apiUrl, {
-//       method: 'GET',
-//     });
-
+//     console.log('API URL:', apiUrl);
+    
+//     const response = await fetch(apiUrl);
 //     const data = await response.json();
 //     console.log('OTP response:', data);
 
@@ -135,10 +130,11 @@ export const verifyOtp = async (req, res) => {
 //       return ApiResponse.errorResponse(res, 400, data.Details || "OTP sending failed");
 //     }
 
-//     console.log('✅ OTP SENT SUCCESSFULLY - OTP:', otp);
-
+//     console.log('✅ OTP SENT SUCCESSFULLY via SMS');
+    
+//     // Store the session ID to verify OTP later
 //     return ApiResponse.successResponse(res, 200, "OTP sent successfully", {
-//       sessionId: data.Details
+//       sessionId: data.Details // This is the session ID you'll need for verification
 //     });
 
 //   } catch (err) {
@@ -146,7 +142,6 @@ export const verifyOtp = async (req, res) => {
 //     return ApiResponse.errorResponse(res, 500, err?.message || "Internal server error");
 //   }
 // };
-
 
 
 // export const verifyOtp = async (req, res) => {

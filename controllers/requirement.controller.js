@@ -418,11 +418,12 @@ export const getCompletedApprovedRequirements = async (req, res) => {
 
     // Fetch closed deals where user is either buyer OR seller
     const closedDeals = await ClosedDeal.find({
-      $or: [
-        { sellerId: userId },
-        { buyerId: userId }
-      ],
-      dealStatus:'accepted'
+      // $or: [
+      //   { sellerId: userId },
+      //   { buyerId: userId }
+      // ],
+      buyerId: userId,
+      // dealStatus:'accepted'
     })
       .populate({
         path: "productId",
@@ -459,6 +460,7 @@ export const getCompletedApprovedRequirements = async (req, res) => {
           date: deal.date,
           finalBudget: deal.finalBudget || 0,
           closedAt: deal.closedAt,
+          closedDealStatus:deal.closedDealStatus
         };
 
         if (!responseObj.product?._id) {
@@ -664,7 +666,8 @@ export const getApprovedPendingRequirements = async (req, res) => {
       (item) =>
         item?.closedDealStatus === "waiting_seller_approval" ||
         item?.closedDealStatus === "pending" ||
-        item?.closedDealStatus === "rejected" 
+        item?.closedDealStatus === "rejected" || 
+        item?.closedDealStatus === "completed"
     );
 
     const total = filteredRequirements.length;
