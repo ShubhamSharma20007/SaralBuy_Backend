@@ -134,7 +134,7 @@ const processProductData = (productData, imageUrl, documentUrl, categoryId, subC
     "description", "gst_requirement", "paymentAndDelivery", "color", "selectCategory", "brand",
     "additionalDeliveryAndPackage", "fuelType", "model", "transmission", "productCategory",
     "gender", "typeOfAccessories", "toolType", "rateAService", "conditionOfProduct", "budget",
-    "bidActiveDuration","brandName",'typeOfVehicle','typeOfProduct'
+    "bidActiveDuration","brandName",'typeOfVehicle','typeOfProduct','isMergeQuote'
   ];
 
   for (const field of allowedFields) {

@@ -58,6 +58,10 @@ const productSchema = new mongoose.Schema({
   typeOfVehicle:{type:String},
   typeOfProduct:{type:String}, // user will describe
   productType: { type: String,}, // ["new_product", "old_product"]
+  isMergeQuote:{
+    type:Boolean,
+    default:false
+  }
 },{
   timestamps:true
 });
