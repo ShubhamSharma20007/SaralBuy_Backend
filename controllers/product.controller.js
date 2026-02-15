@@ -8,6 +8,7 @@ import {isValidObjectId}  from "../helper/isValidId.js"
 import multiProductSchema from "../schemas/multiProduct.schema.js";
 import productNotificationSchema from "../schemas/productNotification.schema.js";
 import requirementSchema from "../schemas/requirement.schema.js";
+import closedDealSchema from "../schemas/closedDeal.schema.js";
 
 
 const mergeDraftProducts = (allDrafts) => {
@@ -1450,9 +1451,13 @@ export const getProductById = async (req, res) => {
       .populate({ path: "userId", select: "firstName lastName address" })
       .populate({ path: "categoryId", select: "categoryName" });
 
+      
     if (!product) {
       return ApiResponse.errorResponse(res, 404, "Product not found");
     }
+
+    const getStatus = await closedDealSchema.findOne({productId:productId}).select('closedDealStatus').lean();
+    const dealStatus = getStatus?.closedDealStatus || null;
 
     // 2. Check if product is part of any MultiProduct
     const multiProduct = await multiProductSchema
@@ -1479,6 +1484,7 @@ export const getProductById = async (req, res) => {
 
     if (multiProduct && multiProduct.mainProductId) {
       const mainProduct = multiProduct.mainProductId.toObject();
+      mainProduct.dealStatus = dealStatus;
       const subProducts = (multiProduct.subProducts || []).map(sp =>
         sp.toObject ? sp.toObject() : sp
       );
@@ -1489,8 +1495,10 @@ export const getProductById = async (req, res) => {
     }
 
     // If not part of MultiProduct
+    const productObj = product.toObject();
+    productObj.dealStatus = dealStatus;
     return ApiResponse.successResponse(res, 200, "Product found", [
-      { mainProduct: product.toObject(), subProducts: [] }
+      { mainProduct:productObj , subProducts: [] }
     ]);
 
   } catch (error) {

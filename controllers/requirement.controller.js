@@ -700,24 +700,28 @@ export const getApprovedPendingRequirements = async (req, res) => {
 export const closeDeal = async (req, res) => {
   try {
     const { productId, buyerId, sellerId,finalBudget } = req.body;
-
+    console.log(req.body)
     if (!mongoose.Types.ObjectId.isValid(productId) ||
         !mongoose.Types.ObjectId.isValid(buyerId) ||
         !mongoose.Types.ObjectId.isValid(sellerId)) {
       return ApiResponse.errorResponse(res, 400, "Invalid productId, buyerId, or sellerId");
     }
-
-    // Find the requirement
-    const requirement = await requirementSchema.findOne({ productId, buyerId });
-    if (!requirement) {
-      return ApiResponse.errorResponse(res, 404, "Requirement not found");
-    }
-
+    
+  
     // Find the product to get category, minBudget, budget
     const product = await productSchema.findById(productId).lean();
     if (!product) {
       return ApiResponse.errorResponse(res, 404, "Product not found");
     }
+    
+      // Find the requirement
+    if(!product.isMergeQuote){
+    const requirement = await requirementSchema.findOne({ productId, buyerId });
+        if (!requirement) {
+          return ApiResponse.errorResponse(res, 404, "Requirement not found");
+        }
+    }
+   
 
     // Mark deal as completed
     // requirement.dealStatus = "completed";
