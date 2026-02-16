@@ -1,0 +1,1 @@
+import{i as e}from"./index-nRz7PDd4.js";class d{addToCart(t){return e.post("/cart/add",{productId:t},{withCredentials:!0}).then(a=>a.data)}getCart(){return e.get("/cart/get-cart",{withCredentials:!0}).then(t=>t.data?.data||t.data)}removeCart(t,a){return e.post(`/cart/remove-cart/${t}/${a}`,{},{withCredentials:!0}).then(r=>r.data?.data||r.data)}}const i=new d;export{i as c};

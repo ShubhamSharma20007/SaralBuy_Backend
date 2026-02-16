@@ -1,0 +1,1 @@
+import{r as i,j as t,P as o}from"./index-nRz7PDd4.js";var s=Object.freeze({position:"absolute",border:0,width:1,height:1,padding:0,margin:-1,overflow:"hidden",clip:"rect(0, 0, 0, 0)",whiteSpace:"nowrap",wordWrap:"normal"}),d="VisuallyHidden",e=i.forwardRef((r,a)=>t.jsx(o.span,{...r,ref:a,style:{...s,...r.style}}));e.displayName=d;var n=e;export{n as R,s as V};
